@@ -113,7 +113,7 @@
       <option value="">Empresa</option>
     </select>
 
-    <input type="text" id="filtroEvento" placeholder="ID Evento (ex: 90123,11703)">
+    <input type="text" id="filtroEvento" inputmode="numeric" placeholder="ID Evento (ex: 90123,11703)">
 
     <select id="filtroRetorno" data-label="Retorno">
       <option value="">Retorno</option>
@@ -249,7 +249,18 @@ function aplicarFiltros() {
 
     if (st && status !== st) mostrar = false;
     if (emp && empresa !== emp) mostrar = false;
-    if (ev && evento !== ev) mostrar = false;
+    /* ----- Evento (múltiplos) ----- */
+    if (ev) {
+      const termosEv = String(ev)
+      .split(",")
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    // compara como string pra não dar problema de número vs texto
+     const eventoStr = String(evento || "").trim();
+
+    if (!termosEv.some(t => eventoStr === t)) mostrar = false;
+}
 
     /* ----- Filtro de retorno ----- */
     if (ret) {
