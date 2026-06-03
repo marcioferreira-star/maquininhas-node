@@ -267,11 +267,12 @@ function aplicarFiltros() {
       if (!retorno || retorno === "-") {
         mostrar = false;
       } else {
-        let dt = null;
-        try { dt = new Date(retorno.split("/").reverse().join("-")); }
-        catch { mostrar = false; }
+        // ✅ parse em horário LOCAL (não usar new Date("aaaa-mm-dd") → vira UTC e regride 1 dia)
+        const [dd, mm, yy] = retorno.split("/");
+        const dt = new Date(Number(yy), Number(mm) - 1, Number(dd));
+        const hojeMid = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
 
-        const diff = Math.floor((dt - hoje) / 86400000);
+        const diff = Math.round((dt - hojeMid) / 86400000);
 
         // ✅ atrasada só faz sentido pra Em Uso, não pra Fixo
         if (ret === "atrasada" && !(status.startsWith("Em Uso") && diff < 0))

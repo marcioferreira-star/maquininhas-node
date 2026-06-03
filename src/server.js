@@ -22,6 +22,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+const IS_PROD = process.env.NODE_ENV === "production";
+
+// Render/Heroku/etc terminam o TLS num proxy. Sem isso o cookie "secure" nunca é enviado.
+app.set("trust proxy", 1);
+
 /* ============================================================
    MIDDLEWARES BÁSICOS
 ============================================================ */
@@ -31,11 +36,24 @@ app.use(express.json());
 /* ============================================================
    SESSÃO (SEGURA PARA PRODUÇÃO)
 ============================================================ */
+if (!process.env.SESSION_SECRET) {
+  console.warn(
+    "⚠️  SESSION_SECRET não definido — usando valor padrão INSEGURO. " +
+    "Defina a variável de ambiente SESSION_SECRET em produção."
+  );
+}
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "super-secret-ingresse",
     resave: false,
     saveUninitialized: false,
+    cookie: {
+      httpOnly: true,            // bloqueia acesso via JS (XSS)
+      secure: IS_PROD,           // só envia em HTTPS quando NODE_ENV=production
+      sameSite: "lax",           // mitiga CSRF em navegação cross-site
+      maxAge: 1000 * 60 * 60 * 8 // expira em 8h
+    }
   })
 );
 

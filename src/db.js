@@ -5,6 +5,7 @@ import {
   updateSheetCell,          // rápido (mantido para compat)
   batchUpdateValues         // ✅ batch de updates
 } from "./sheet.js";
+import { parseBRDate, startOfDayLocal } from "./utils/datas.js";
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
@@ -132,7 +133,7 @@ export async function getMaquinasIndex(options = {}) {
 export async function getResumo() {
   try {
     const maquinas = await getMaquinas();
-    const hoje = new Date();
+    const hoje = startOfDayLocal(); // ✅ compara dia-a-dia, sem ruído do horário/UTC
 
     let disponiveisSP = 0;
     let disponiveisRJ = 0;
@@ -162,13 +163,15 @@ export async function getResumo() {
     ).length;
 
     const atrasadas = maquinas.filter(m => {
-      if (!m.dataRetorno || m.dataRetorno.length < 8) return false;
-      if ((m.status || "").toLowerCase().trim() === "fixo") return false;
+      const st = (m.status || "").toLowerCase().trim();
+      if (st === "fixo") return false;
+      if (!st.includes("em uso")) return false;
 
-      const [d, mth, y] = String(m.dataRetorno).split("/");
-      const dataRet = new Date(`${y}-${mth}-${d}`);
+      const dataRet = parseBRDate(m.dataRetorno); // meia-noite local ou null
+      if (!dataRet) return false;
 
-      return (m.status || "").toLowerCase().includes("em uso") && dataRet < hoje;
+      // ✅ atrasada só se a data de retorno JÁ PASSOU (vence hoje = ainda no prazo)
+      return dataRet < hoje;
     }).length;
 
     return {
