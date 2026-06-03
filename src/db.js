@@ -1,8 +1,7 @@
 // db.js
 import {
   getSheetData,
-  appendToSheet,
-  batchUpdateValues         // ✅ batch de updates
+  appendToSheet
 } from "./sheet.js";
 import { parseBRDate, startOfDayLocal, situacaoPrazo, serialSheetParaBR } from "./utils/datas.js";
 
