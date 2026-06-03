@@ -107,9 +107,8 @@ router.post("/login", async (req, res) => {
    LOGOUT
 ============================================================ */
 router.get("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.redirect("/login");
-  });
+  req.session = null; // cookie-session: limpa o cookie de sessão
+  res.redirect("/login");
 });
 
 export default router;

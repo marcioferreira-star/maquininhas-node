@@ -74,6 +74,12 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
   `getSheetId`/cache).
 - **Testes**: `npm test` (runner nativo do Node) cobrindo `utils/datas.js`.
 
+### 2026-06-03 — sessão em cookie (branch `feat/cookie-session`)
+- Troca `express-session` (MemoryStore) por **`cookie-session`**: a sessão (nome + e-mail)
+  vai assinada no próprio cookie. Sobrevive a restart/deploy do render (não desloga mais
+  todo mundo) e não vaza memória. Logout = `req.session = null`.
+- Testado de ponta a ponta (boot + login/acesso/senha errada/logout via curl). ✅
+
 ## ❓ Aberto / a confirmar
 - **Divergência produção × repositório**: o print do Marcio (tela /historico) mostra uma
   coluna *Status* com "Dentro do prazo"/"Atrasado" que **não existe em nenhuma branch**.
@@ -83,8 +89,6 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
   nunca congelado.
 
 ## 🔧 Recomendações pendentes (não feitas ainda)
-- **MemoryStore de sessão**: a cada deploy/restart do render todos são deslogados. Migrar
-  para store persistente se incomodar.
 - **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio
   (03/06): manter assim por enquanto.**
 - **Sem CSRF** nos POSTs (app interno, risco moderado); sem ESLint.

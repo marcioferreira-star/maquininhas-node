@@ -4,7 +4,7 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import session from "express-session";
+import cookieSession from "cookie-session";
 
 // Rotas
 import loginRoutes from "./routes/login.js";
@@ -34,7 +34,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 /* ============================================================
-   SESSÃO (SEGURA PARA PRODUÇÃO)
+   SESSÃO (cookie assinado — sem store em memória)
+   - Guarda a sessão (pequena: nome + e-mail) no próprio cookie.
+   - Sobrevive a restart/deploy do render (não desloga todo mundo)
+     e não vaza memória.
 ============================================================ */
 if (!process.env.SESSION_SECRET) {
   console.warn(
@@ -44,16 +47,13 @@ if (!process.env.SESSION_SECRET) {
 }
 
 app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "super-secret-ingresse",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,            // bloqueia acesso via JS (XSS)
-      secure: IS_PROD,           // só envia em HTTPS quando NODE_ENV=production
-      sameSite: "lax",           // mitiga CSRF em navegação cross-site
-      maxAge: 1000 * 60 * 60 * 8 // expira em 8h
-    }
+  cookieSession({
+    name: "sess",
+    keys: [process.env.SESSION_SECRET || "super-secret-ingresse"],
+    httpOnly: true,            // bloqueia acesso via JS (XSS)
+    secure: IS_PROD,           // só envia em HTTPS quando NODE_ENV=production
+    sameSite: "lax",           // mitiga CSRF em navegação cross-site
+    maxAge: 1000 * 60 * 60 * 8 // expira em 8h
   })
 );
 
