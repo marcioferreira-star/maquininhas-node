@@ -45,27 +45,6 @@ const auth = new google.auth.GoogleAuth({
 const sheets = google.sheets({ version: "v4", auth });
 
 /* =====================================================
-   🔵 CACHE simples de sheetId por nome (evita lentidão)
-===================================================== */
-const _sheetIdCache = new Map();
-
-async function getSheetId(sheetName) {
-  if (_sheetIdCache.has(sheetName)) return _sheetIdCache.get(sheetName);
-
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: SPREADSHEET_ID
-  });
-
-  const sheet = meta.data.sheets?.find(s => s.properties?.title === sheetName);
-
-  const id = sheet?.properties?.sheetId;
-  if (!id) return null;
-
-  _sheetIdCache.set(sheetName, id);
-  return id;
-}
-
-/* =====================================================
    🔵 LER PLANILHA
 ===================================================== */
 export async function getSheetData(range) {
@@ -78,88 +57,6 @@ export async function getSheetData(range) {
   } catch (error) {
     console.error("❌ Erro ao ler planilha:", error);
     return [];
-  }
-}
-
-/* =====================================================
-   🔵 ATUALIZAR CÉLULA (rápido e estável)
-===================================================== */
-export async function updateSheetCell(range, value) {
-  try {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range,
-      valueInputOption: "USER_ENTERED",
-      requestBody: { values: [[value]] }
-    });
-    return true;
-  } catch (error) {
-    console.error("❌ Erro ao atualizar célula:", error);
-    return false;
-  }
-}
-
-/* =====================================================
-   🔵 (LEGADO) ATUALIZAR CÉLULA preservando formatação
-===================================================== */
-export async function updateSheetCellPreserveFormat(sheetName, row, col, value) {
-  try {
-    const sheetId = await getSheetId(sheetName);
-    if (!sheetId) {
-      console.error("❌ Sheet não encontrado:", sheetName);
-      return false;
-    }
-
-    const requests = [
-      {
-        updateCells: {
-          start: {
-            sheetId,
-            rowIndex: row - 1,
-            columnIndex: col - 1
-          },
-          rows: [
-            {
-              values: [
-                {
-                  userEnteredValue: { stringValue: String(value ?? "") }
-                }
-              ]
-            }
-          ],
-          fields: "userEnteredValue"
-        }
-      }
-    ];
-
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      resource: { requests }
-    });
-
-    return true;
-  } catch (error) {
-    console.error("❌ Erro ao atualizar (preservando formato):", error);
-    return false;
-  }
-}
-
-/* =====================================================
-   🔵 APPEND (modo compatibilidade)
-===================================================== */
-export async function updateSheetAppend(range, values) {
-  try {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range,
-      valueInputOption: "USER_ENTERED",
-      insertDataOption: "INSERT_ROWS",
-      requestBody: { values: [values] }
-    });
-    return true;
-  } catch (error) {
-    console.error("❌ Erro ao inserir linha:", error);
-    return false;
   }
 }
 
@@ -186,7 +83,7 @@ export async function appendToSheet(range, values) {
 }
 
 /* =====================================================
-   🔵 NOVO: BATCH UPDATE DE VÁRIAS CÉLULAS DE UMA VEZ
+   🔵 BATCH UPDATE DE VÁRIAS CÉLULAS DE UMA VEZ
    - updates: Array<{ range: "'Aba'!A1", value: any }>
 ===================================================== */
 export async function batchUpdateValues(updates) {

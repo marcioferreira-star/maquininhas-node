@@ -134,9 +134,10 @@ router.post("/registrar-envio", async (req, res) => {
     // ⚠️ histórico só é necessário no Retorno (fallback de origem)
     const historicoCompleto = isRetorno ? await getHistorico() : [];
     // ⚠️ index é usado para:
-    // - resolver linha quando não veio no payload
+    // - resolver a linha correta pelo SERIAL (chave confiável)
     // - resolver origem do controle (idEvento/nomeEvento/etc) no retorno
-    const idxMaquinas = await getMaquinasIndex();
+    // ✅ force: garante nº de linha atualizado mesmo se a planilha mudou (uso simultâneo)
+    const idxMaquinas = await getMaquinasIndex({ force: true });
 
     const hoje = hojeBR();
     const autor = req.session.user?.nome || "Sistema";
@@ -145,9 +146,21 @@ router.post("/registrar-envio", async (req, res) => {
        ACUMULADORES
     ============================ */
     const valueUpdates = [];
+    const rollbackUpdates = [];   // ✅ valores ANTERIORES, p/ desfazer se o histórico falhar
     const historicoRows = [];
     const pendenciasPopup = [];
     const erros = [];
+
+    // snapshot dos valores atuais (G,O,N,J,K,L,M) de uma linha — usado p/ rollback
+    const snapshotRollback = (ln, m) => [
+      { range: `'${SHEET_NAME}'!G${ln}`, value: m.status ?? "-" },
+      { range: `'${SHEET_NAME}'!O${ln}`, value: m.dataRetorno ?? "-" },
+      { range: `'${SHEET_NAME}'!N${ln}`, value: m.dataSaida ?? "-" },
+      { range: `'${SHEET_NAME}'!J${ln}`, value: m.idEvento ?? "-" },
+      { range: `'${SHEET_NAME}'!K${ln}`, value: m.nomeEvento ?? "-" },
+      { range: `'${SHEET_NAME}'!L${ln}`, value: m.produtora ?? "-" },
+      { range: `'${SHEET_NAME}'!M${ln}`, value: m.comercial ?? "-" }
+    ];
 
     /* ============================
        LOOP PRINCIPAL
@@ -175,8 +188,9 @@ router.post("/registrar-envio", async (req, res) => {
         continue;
       }
 
-      // se linha não veio no payload, usa a do index
-      if (!linha) linha = Number(maquina.linha || 0);
+      // ✅ a linha é SEMPRE resolvida pelo serial no índice fresco.
+      // (ignora a linha enviada pelo front, que pode estar velha e apontar pra outra máquina)
+      linha = Number(maquina.linha || 0);
       if (!linha) {
         erros.push({ serial, step: "no-line" });
         continue;
@@ -243,6 +257,7 @@ router.post("/registrar-envio", async (req, res) => {
             obs_origem
           ]);
 
+          rollbackUpdates.push(...snapshotRollback(linha, maquina));
           valueUpdates.push(
             { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
             { range: `'${SHEET_NAME}'!O${linha}`, value: hoje },
@@ -272,6 +287,7 @@ router.post("/registrar-envio", async (req, res) => {
           obs || "-"
         ]);
 
+        rollbackUpdates.push(...snapshotRollback(linha, maquina));
         valueUpdates.push(
           { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
           { range: `'${SHEET_NAME}'!O${linha}`, value: hoje },
@@ -309,6 +325,7 @@ router.post("/registrar-envio", async (req, res) => {
         obs || "-"
       ]);
 
+      rollbackUpdates.push(...snapshotRollback(linha, maquina));
       valueUpdates.push(
         { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
         { range: `'${SHEET_NAME}'!O${linha}`, value: dataRetornoBR },
@@ -333,19 +350,34 @@ router.post("/registrar-envio", async (req, res) => {
     }
 
     /* ======================================================
-       SALVAR HISTÓRICO
-    ======================================================= */
-    if (historicoRows.length > 0) {
-      const okHist = await registrarMovimento(historicoRows);
-      if (!okHist) erros.push({ step: "historico-append" });
-    }
-
-    /* ======================================================
-       BATCH UPDATE
+       GRAVAÇÃO QUASE-ATÔMICA
+       1º) CONTROLE (estado/fonte da verdade)
+       2º) HISTÓRICO (log). Se o log falhar, desfaz o CONTROLE.
+       Assim nunca fica "máquina movida sem registro" nem o contrário.
     ======================================================= */
     if (valueUpdates.length > 0) {
       const okBatch = await batchUpdateValues(valueUpdates);
-      if (!okBatch) erros.push({ step: "values-batch-update" });
+      if (!okBatch) {
+        return res.json({
+          ok: false,
+          msg: "Falha ao atualizar a planilha. Nada foi gravado, tente de novo."
+        });
+      }
+    }
+
+    if (historicoRows.length > 0) {
+      const okHist = await registrarMovimento(historicoRows);
+      if (!okHist) {
+        // rollback do CONTROLE para não deixar estado sem histórico
+        if (rollbackUpdates.length > 0) {
+          const okRb = await batchUpdateValues(rollbackUpdates);
+          console.error("❌ Histórico falhou. Rollback do CONTROLE:", okRb ? "OK" : "FALHOU");
+        }
+        return res.json({
+          ok: false,
+          msg: "Falha ao gravar o histórico. As alterações foram revertidas, tente de novo."
+        });
+      }
     }
 
     /* ======================================================
@@ -376,7 +408,7 @@ router.post("/atualizar-status", async (req, res) => {
     if (!serial?.trim()) return res.json({ ok: false, msg: "Serial obrigatório." });
     if (!status?.trim()) return res.json({ ok: false, msg: "Status obrigatório." });
 
-    const idx = await getMaquinasIndex();
+    const idx = await getMaquinasIndex({ force: true }); // ✅ linha sempre atualizada
     const m = idx.get(String(serial).trim());
 
     if (!m) return res.json({ ok: false, msg: "Serial não encontrado." });

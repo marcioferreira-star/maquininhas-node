@@ -59,6 +59,21 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
 - `server.js`: `trust proxy`, aviso se faltar `SESSION_SECRET`, cookie `httpOnly`/`secure`
   (prod)/`sameSite=lax`/`maxAge=8h`.
 
+### 2026-06-03 — robustez + limpeza (branch `chore/robustez-e-limpeza`)
+- **Atomicidade do envio** (`api.js`): grava CONTROLE primeiro, depois HISTÓRICO; se o
+  log falhar, faz **rollback** do CONTROLE (snapshot dos valores anteriores). Não fica
+  mais "máquina movida sem registro" nem o contrário.
+- **Linha correta sob concorrência**: `/registrar-envio` e `/atualizar-status` agora usam
+  `getMaquinasIndex({ force: true })` e resolvem a linha **sempre pelo serial** (ignoram a
+  linha enviada pelo front, que podia estar velha).
+- **Rate-limit no login** (em memória, 5 tentativas / 10 min) + mensagem genérica
+  ("E-mail ou senha inválidos") para não revelar se o e-mail existe.
+- **Limpeza de código morto**: removidas funções não usadas de `db.js`
+  (`getStatusCount`, `getEmpresaCount`, `getLocalCount`, `getEnviosRetornos30Dias`,
+  `getTopEventos`, `atualizar*`) e de `sheet.js` (`updateSheetCell*`, `updateSheetAppend`,
+  `getSheetId`/cache).
+- **Testes**: `npm test` (runner nativo do Node) cobrindo `utils/datas.js`.
+
 ## ❓ Aberto / a confirmar
 - **Divergência produção × repositório**: o print do Marcio (tela /historico) mostra uma
   coluna *Status* com "Dentro do prazo"/"Atrasado" que **não existe em nenhuma branch**.
@@ -68,14 +83,10 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
   nunca congelado.
 
 ## 🔧 Recomendações pendentes (não feitas ainda)
-- **Atomicidade**: `api.js /registrar-envio` grava histórico e atualiza o CONTROLE em 2
-  chamadas sem rollback → risco de inconsistência se a 2ª falhar.
-- **Linha errada sob concorrência**: `/registrar-envio` usa `getMaquinasIndex()` sem `force`
-  (cache até 15s) → pode escrever na linha errada se a planilha mudou. Considerar resolver a
-  linha pelo serial no momento da escrita.
 - **MemoryStore de sessão**: a cada deploy/restart do render todos são deslogados. Migrar
   para store persistente se incomodar.
-- **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). Gerar senhas individuais.
-- **Sem rate-limit no /login**, sem CSRF, sem testes, sem ESLint.
-- **Código morto** em `db.js`/`sheet.js` (várias funções `atualizar*`, `getTopEventos`,
-  `getStatusCount`, `updateSheetCell*`, etc. não usadas).
+- **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio
+  (03/06): manter assim por enquanto.**
+- **Sem CSRF** nos POSTs (app interno, risco moderado); sem ESLint.
+- **Atomicidade**: o rollback é "best-effort" (se o processo cair entre o update do CONTROLE
+  e o append do histórico, não há compensação). Aceitável para o volume atual.

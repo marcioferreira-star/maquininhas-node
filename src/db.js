@@ -2,7 +2,6 @@
 import {
   getSheetData,
   appendToSheet,
-  updateSheetCell,          // rápido (mantido para compat)
   batchUpdateValues         // ✅ batch de updates
 } from "./sheet.js";
 import { parseBRDate, startOfDayLocal, situacaoPrazo } from "./utils/datas.js";
@@ -200,132 +199,6 @@ export async function getResumo() {
 }
 
 /* ============================================================
-   🔵 CONTAGEM POR STATUS
-============================================================ */
-export async function getStatusCount() {
-  try {
-    const maquinas = await getMaquinas();
-    const mapa = {};
-
-    maquinas.forEach(m => {
-      const st = (m.status || "-").trim();
-      mapa[st] = (mapa[st] || 0) + 1;
-    });
-
-    return mapa;
-  } catch (err) {
-    console.error("❌ Erro getStatusCount:", err);
-    return null;
-  }
-}
-
-/* ============================================================
-   🔵 DISTRIBUIÇÃO POR EMPRESA
-============================================================ */
-export async function getEmpresaCount() {
-  try {
-    const maquinas = await getMaquinas();
-    const mapa = {};
-
-    maquinas.forEach(m => {
-      const emp = m.empresa || "-";
-      mapa[emp] = (mapa[emp] || 0) + 1;
-    });
-
-    return Object.keys(mapa).map(k => ({ nome: k, qtd: mapa[k] }));
-  } catch (err) {
-    console.error("❌ Erro getEmpresaCount:", err);
-    return [];
-  }
-}
-
-/* ============================================================
-   🔵 LOCALIDADE
-============================================================ */
-export async function getLocalCount() {
-  try {
-    const maquinas = await getMaquinas();
-    const mapa = {};
-
-    maquinas.forEach(m => {
-      const st = (m.status || "").toUpperCase();
-      let local = "-";
-
-      if (st.includes("SP")) local = "SP";
-      else if (st.includes("RJ")) local = "RJ";
-      else if (st.includes("URA")) local = "URA";
-
-      mapa[local] = (mapa[local] || 0) + 1;
-    });
-
-    return Object.keys(mapa).map(k => ({ nome: k, qtd: mapa[k] }));
-  } catch (err) {
-    console.error("❌ Erro getLocalCount:", err);
-    return [];
-  }
-}
-
-/* ============================================================
-   🔵 ENVIO x RETORNO – últimos 30 dias
-============================================================ */
-export async function getEnviosRetornos30Dias() {
-  try {
-    const hist = await getHistorico();
-    if (!hist || hist.length === 0) return null;
-
-    const hoje = new Date();
-    const dias = {};
-
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(hoje);
-      d.setDate(hoje.getDate() - i);
-      const key = d.toLocaleDateString("pt-BR");
-      dias[key] = { envios: 0, retornos: 0 };
-    }
-
-    hist.forEach(r => {
-      if (r.saida && dias[r.saida]) dias[r.saida].envios++;
-      if (r.retorno && dias[r.retorno]) dias[r.retorno].retornos++;
-    });
-
-    return {
-      labels: Object.keys(dias),
-      envios: Object.values(dias).map(d => d.envios),
-      retornos: Object.values(dias).map(d => d.retornos)
-    };
-  } catch (err) {
-    console.error("❌ Erro getEnviosRetornos30Dias:", err);
-    return null;
-  }
-}
-
-/* ============================================================
-   🔵 TOP EVENTOS
-============================================================ */
-export async function getTopEventos() {
-  try {
-    const maquinas = await getMaquinas();
-    const mapa = {};
-
-    maquinas.forEach(m => {
-      if (!m.idEvento || m.idEvento === "-") return;
-      mapa[m.idEvento] = (mapa[m.idEvento] || 0) + 1;
-    });
-
-    return Object.keys(mapa)
-      .map(id => ({
-        id,
-        nome: maquinas.find(x => x.idEvento == id)?.nomeEvento || "-",
-        qtd: mapa[id]
-      }))
-      .sort((a, b) => b.qtd - a.qtd);
-  } catch (err) {
-    console.error("❌ Erro getTopEventos:", err);
-    return [];
-  }
-}
-
-/* ============================================================
    🔵 BUSCAR DADOS DO EVENTO (COM CACHE)
 ============================================================ */
 export async function getEventoInfo(idEvento) {
@@ -364,45 +237,6 @@ export async function getEventoInfo(idEvento) {
 }
 
 /* ============================================================
-   🔵 (LEGADO) ATUALIZAÇÕES unitárias rápidas
-============================================================ */
-export async function atualizarDadosEvento(serial, eventoInfo) {
-  const idx = await getMaquinasIndex();
-  const m = idx.get(String(serial).trim());
-  if (!m) return false;
-
-  const ups = [
-    { range: `'${SHEET_NAME}'!J${m.linha}`, value: eventoInfo.id_evento },
-    { range: `'${SHEET_NAME}'!K${m.linha}`, value: eventoInfo.nome_evento },
-    { range: `'${SHEET_NAME}'!L${m.linha}`, value: eventoInfo.produtora },
-    { range: `'${SHEET_NAME}'!M${m.linha}`, value: eventoInfo.comercial }
-  ];
-  return await batchUpdateValues(ups);
-}
-
-export async function atualizarStatus(serial, novoStatus, dataRetorno = "-") {
-  const idx = await getMaquinasIndex();
-  const m = idx.get(String(serial).trim());
-  if (!m) return false;
-
-  const ups = [
-    { range: `'${SHEET_NAME}'!G${m.linha}`, value: novoStatus },
-    { range: `'${SHEET_NAME}'!O${m.linha}`, value: dataRetorno }
-  ];
-  return await batchUpdateValues(ups);
-}
-
-export async function atualizarDataSaida(serial, dataSaida) {
-  const idx = await getMaquinasIndex();
-  const m = idx.get(String(serial).trim());
-  if (!m) return false;
-
-  return await batchUpdateValues([
-    { range: `'${SHEET_NAME}'!N${m.linha}`, value: dataSaida }
-  ]);
-}
-
-/* ============================================================
    🔵 REGISTRAR MOVIMENTO (HISTÓRICO)
    - Aceita 1 linha (obj) ou várias linhas (array de arrays)
 ============================================================ */
@@ -438,6 +272,7 @@ export async function registrarMovimento(info) {
 /* ============================================================
    🔵 HISTÓRICO COMPLETO
    - Sem cache (pra refletir o “último” imediatamente no front)
+   - situacao: prazo calculado AO VIVO (ver utils/datas.js)
 ============================================================ */
 export async function getHistorico() {
   try {
