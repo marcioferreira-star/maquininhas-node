@@ -5,7 +5,7 @@ import {
   updateSheetCell,          // rápido (mantido para compat)
   batchUpdateValues         // ✅ batch de updates
 } from "./sheet.js";
-import { parseBRDate, startOfDayLocal } from "./utils/datas.js";
+import { parseBRDate, startOfDayLocal, situacaoPrazo } from "./utils/datas.js";
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
@@ -444,19 +444,41 @@ export async function getHistorico() {
     const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K20000`);
     if (!dados || dados.length === 0) return [];
 
-    return dados.map(l => ({
-      serial: String(l[0] || "-").trim(),
-      evento: String(l[1] || "-").trim(),
-      acao: l[2] || "-",
-      saida: l[3] || "-",
-      retorno: l[4] || "-",
-      status: l[5] || "-",
-      usuario: l[6] || "-",
-      nome_evento: l[7] || "-",
-      produtora: l[8] || "-",
-      comercial: l[9] || "-",
-      obs: l[10] || "-"
-    }));
+    // índice do ÚLTIMO movimento de cada serial (planilha está em ordem cronológica de append)
+    const ultimoIdxPorSerial = new Map();
+    dados.forEach((l, i) => {
+      const s = String(l[0] || "").trim();
+      if (s) ultimoIdxPorSerial.set(s, i);
+    });
+
+    return dados.map((l, i) => {
+      const serial = String(l[0] || "-").trim();
+      const acao = l[2] || "-";
+      const retorno = l[4] || "-";
+
+      // Situação de prazo AO VIVO (ignora o texto congelado na planilha).
+      // Só vale para a linha de Envio que ainda é o ÚLTIMO movimento do serial
+      // (ou seja, a máquina ainda está fora). Envios já sucedidos por um retorno = "Devolvida".
+      let situacao = situacaoPrazo(acao, retorno);
+      if (situacao && situacao !== "Fixo" && ultimoIdxPorSerial.get(serial) !== i) {
+        situacao = "Devolvida";
+      }
+
+      return {
+        serial,
+        evento: String(l[1] || "-").trim(),
+        acao,
+        saida: l[3] || "-",
+        retorno,
+        status: l[5] || "-",
+        situacao,
+        usuario: l[6] || "-",
+        nome_evento: l[7] || "-",
+        produtora: l[8] || "-",
+        comercial: l[9] || "-",
+        obs: l[10] || "-"
+      };
+    });
   } catch (err) {
     console.error("❌ Erro getHistorico:", err);
     return [];

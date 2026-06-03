@@ -36,3 +36,21 @@ export function diffDiasDeHoje(br) {
   const hoje = startOfDayLocal();
   return Math.round((alvo - hoje) / 86_400_000);
 }
+
+/**
+ * Situação de prazo de uma linha do histórico, calculada AO VIVO.
+ * Só faz sentido para linhas de Envio (Retorno não tem prazo).
+ * Retorna "" quando não se aplica (ex.: linha de Retorno) — aí o front
+ * mostra o status factual.
+ */
+export function situacaoPrazo(acao, retornoBR) {
+  const a = String(acao || "").toLowerCase();
+  if (!a.includes("envio")) return "";       // retorno/outros: sem prazo
+  if (a.includes("fixo")) return "Fixo";     // envio fixo não tem retorno
+  const ret = parseBRDate(retornoBR);
+  if (!ret) return "Fixo";
+  const hoje = startOfDayLocal();
+  if (ret < hoje) return "Atrasado";
+  if (ret.getTime() === hoje.getTime()) return "Vence hoje";
+  return "Dentro do prazo";
+}

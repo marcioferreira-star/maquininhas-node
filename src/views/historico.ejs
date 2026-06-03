@@ -242,7 +242,21 @@
                 <td><%= h.acao || "-" %></td>
                 <td><%= h.saida || "-" %></td>
                 <td><%= h.retorno || "-" %></td>
-                <td><%= h.status || "-" %></td>
+                <td>
+                  <% if (h.situacao) { %>
+                    <%
+                      const cor =
+                        h.situacao === "Atrasado"        ? "#d9534f" :
+                        h.situacao === "Vence hoje"      ? "#e0a800" :
+                        h.situacao === "Dentro do prazo" ? "#28a745" :
+                        h.situacao === "Devolvida"       ? "#5a87c9" :
+                        "#6c757d"; // Fixo / outros
+                    %>
+                    <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;color:#fff;background:<%= cor %>;white-space:nowrap;"><%= h.situacao %></span>
+                  <% } else { %>
+                    <%= h.status || "-" %>
+                  <% } %>
+                </td>
                 <td><%= h.usuario || "-" %></td>
                 <td><%= h.nome_evento || "-" %></td>
                 <td><%= h.produtora || "-" %></td>
