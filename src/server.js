@@ -66,6 +66,26 @@ app.use((req, res, next) => {
 });
 
 /* ============================================================
+   PROTEÇÃO CSRF (checagem de origem)
+   - Bloqueia POST/PUT/DELETE vindos de OUTRO site.
+   - Complementa o cookie sameSite=lax. Não exige token no front.
+============================================================ */
+app.use((req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
+    return next();
+  }
+  const origin = req.get("origin") || req.get("referer");
+  if (origin) {
+    let originHost = null;
+    try { originHost = new URL(origin).host; } catch { /* origem malformada */ }
+    if (originHost && originHost !== req.get("host")) {
+      return res.status(403).send("Origem não permitida (CSRF).");
+    }
+  }
+  next();
+});
+
+/* ============================================================
    ARQUIVOS ESTÁTICOS
 ============================================================ */
 app.use(express.static(path.join(__dirname, "public")));

@@ -88,9 +88,16 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
 - **Dashboard**: o ícone ✅ da card "Disponíveis" cobria o sub-valor URA — movido pro topo
   e reduzido (`.kpi-disp .kpi-icon`).
 
+### 2026-06-03 — CSRF + ESLint + untrack node_modules
+- **CSRF**: middleware de checagem de **Origin/Referer** nos POST/PUT/DELETE (bloqueia
+  requisições de outro site com 403). Complementa o cookie `sameSite=lax`. Sem token no
+  front. Testado (mesma origem passa, origem externa → 403).
+- **ESLint** 9 (flat config) + `npm run lint`. Lint limpo.
+- **node_modules** removido do versionamento (`git rm -r --cached`); render roda
+  `npm install` no deploy.
+
 ## ❓ Aberto / a confirmar
-- **`node_modules` está versionado** no git (deveria estar fora). Não afeta produção
-  (render roda `npm install`), mas suja o working tree. Sugestão: `git rm -r --cached node_modules`.
+- (nada pendente no momento)
 - **Divergência produção × repositório**: o print do Marcio (tela /historico) mostra uma
   coluna *Status* com "Dentro do prazo"/"Atrasado" que **não existe em nenhuma branch**.
   Hipótese: o site no render roda um build antigo que gravava esse status como texto FIXO
@@ -101,6 +108,6 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
 ## 🔧 Recomendações pendentes (não feitas ainda)
 - **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio
   (03/06): manter assim por enquanto.**
-- **Sem CSRF** nos POSTs (app interno, risco moderado); sem ESLint.
+- **MemoryStore de sessão**: resolvido (cookie-session). | **CSRF/ESLint/node_modules**: feitos.
 - **Atomicidade**: o rollback é "best-effort" (se o processo cair entre o update do CONTROLE
   e o append do histórico, não há compensação). Aceitável para o volume atual.
