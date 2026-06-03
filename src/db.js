@@ -4,7 +4,7 @@ import {
   appendToSheet,
   batchUpdateValues         // ✅ batch de updates
 } from "./sheet.js";
-import { parseBRDate, startOfDayLocal, situacaoPrazo } from "./utils/datas.js";
+import { parseBRDate, startOfDayLocal, situacaoPrazo, serialSheetParaBR } from "./utils/datas.js";
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
@@ -77,8 +77,9 @@ export async function getMaquinas(options = {}) {
       nomeEvento: linha[10] || "-",
       produtora: linha[11] || "-",
       comercial: linha[12] || "-",
-      dataSaida: linha[13] || "-",
-      dataRetorno: linha[14] || "-"
+      // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
+      dataSaida: serialSheetParaBR(linha[13]) || "-",
+      dataRetorno: serialSheetParaBR(linha[14]) || "-"
     }));
 
     CACHE.maquinas.ts = now();
@@ -289,7 +290,9 @@ export async function getHistorico() {
     return dados.map((l, i) => {
       const serial = String(l[0] || "-").trim();
       const acao = l[2] || "-";
-      const retorno = l[4] || "-";
+      // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
+      const saida = serialSheetParaBR(l[3]) || "-";
+      const retorno = serialSheetParaBR(l[4]) || "-";
 
       // Situação de prazo AO VIVO (ignora o texto congelado na planilha).
       // Só vale para a linha de Envio que ainda é o ÚLTIMO movimento do serial
@@ -303,7 +306,7 @@ export async function getHistorico() {
         serial,
         evento: String(l[1] || "-").trim(),
         acao,
-        saida: l[3] || "-",
+        saida,
         retorno,
         status: l[5] || "-",
         situacao,

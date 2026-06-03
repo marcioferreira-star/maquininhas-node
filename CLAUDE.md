@@ -80,7 +80,17 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
   todo mundo) e não vaza memória. Logout = `req.session = null`.
 - Testado de ponta a ponta (boot + login/acesso/senha errada/logout via curl). ✅
 
+### 2026-06-03 — data-serial + layout do dashboard (branch `fix/data-serial-e-dashboard`)
+- **Data virando número** (ex.: "46175" em vez de "02/06/2026"): o Sheets guarda datas
+  `USER_ENTERED` como número de série; células sem formato de data mostram o número cru.
+  Novo `serialSheetParaBR()` converte de volta na leitura (`getMaquinas` e `getHistorico`),
+  corrigindo linhas antigas e novas sem mexer na planilha.
+- **Dashboard**: o ícone ✅ da card "Disponíveis" cobria o sub-valor URA — movido pro topo
+  e reduzido (`.kpi-disp .kpi-icon`).
+
 ## ❓ Aberto / a confirmar
+- **`node_modules` está versionado** no git (deveria estar fora). Não afeta produção
+  (render roda `npm install`), mas suja o working tree. Sugestão: `git rm -r --cached node_modules`.
 - **Divergência produção × repositório**: o print do Marcio (tela /historico) mostra uma
   coluna *Status* com "Dentro do prazo"/"Atrasado" que **não existe em nenhuma branch**.
   Hipótese: o site no render roda um build antigo que gravava esse status como texto FIXO

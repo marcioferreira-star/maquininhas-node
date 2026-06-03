@@ -38,6 +38,29 @@ export function diffDiasDeHoje(br) {
 }
 
 /**
+ * O Google Sheets, ao receber uma data como USER_ENTERED, guarda um NÚMERO DE SÉRIE
+ * (dias desde 1899-12-30). Se a célula não estiver formatada como data, a leitura
+ * volta esse número cru (ex.: "46175"). Aqui convertemos de volta para "dd/mm/aaaa".
+ * Valores que já são texto/data (têm "/") ou vazios são devolvidos sem mudança.
+ */
+export function serialSheetParaBR(v) {
+  if (v == null) return v;
+  const s = String(v).trim();
+  if (!s || s === "-") return s;
+  if (!/^\d+$/.test(s)) return s; // já é texto (ex.: "01/12/2025")
+
+  const serial = Number(s);
+  // só trata como data se o serial for plausível (~1982 a ~2119)
+  if (serial < 30000 || serial > 80000) return s;
+
+  // constrói em UTC para não sofrer deslocamento de fuso
+  const d = new Date(Date.UTC(1899, 11, 30) + serial * 86_400_000);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
+
+/**
  * Situação de prazo de uma linha do histórico, calculada AO VIVO.
  * Só faz sentido para linhas de Envio (Retorno não tem prazo).
  * Retorna "" quando não se aplica (ex.: linha de Retorno) — aí o front

@@ -6,7 +6,8 @@ import {
   parseBRDate,
   startOfDayLocal,
   diffDiasDeHoje,
-  situacaoPrazo
+  situacaoPrazo,
+  serialSheetParaBR
 } from "../src/utils/datas.js";
 
 // helper: formata um Date em "dd/mm/aaaa" no fuso local
@@ -60,4 +61,12 @@ test("situacaoPrazo — atrasado / vence hoje / no prazo", () => {
   assert.equal(situacaoPrazo("Envio SP", toBR(ontem)), "Atrasado");
   assert.equal(situacaoPrazo("Envio SP", toBR(hoje)), "Vence hoje");
   assert.equal(situacaoPrazo("Envio SP", toBR(amanha)), "Dentro do prazo");
+});
+
+test("serialSheetParaBR — número de série vira data; texto fica igual", () => {
+  assert.equal(serialSheetParaBR("46175"), "02/06/2026"); // o caso real do print
+  assert.equal(serialSheetParaBR("01/12/2025"), "01/12/2025"); // já é data
+  assert.equal(serialSheetParaBR("-"), "-");
+  assert.equal(serialSheetParaBR(""), "");
+  assert.equal(serialSheetParaBR("0"), "0"); // número pequeno não é data
 });
