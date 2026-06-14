@@ -6,11 +6,15 @@ e status de hardware de checkout para eventos. Estoque em **SP, RJ e URA**.
 ## Stack
 - Node.js + Express + EJS (ESM — `"type": "module"`, use `import`, **nunca `require`**)
 - Google Sheets como banco (service account)
-- Sessão via `express-session`; usuários em `src/auth/users.json` (bcrypt)
-- Deploy: **render.com** (auto-deploy ao dar push na branch `main`)
+- Sessão via `cookie-session` (cookie assinado, sem store em memória); usuários em `src/auth/users.json` (bcrypt)
+- Deploy: **Vercel** (serverless, auto-deploy no push à `main`) — `https://maquininhas-node.vercel.app`.
+  Render foi descontinuado (migração 14/06/2026). Roda LOCAL via `npm start` (server.js → app.js).
 
 ## Estrutura
-- `src/server.js` — entrypoint Express, sessão, rotas
+- `src/app.js` — configuração do Express (middlewares, sessão, rotas) — **exporta o `app`**
+- `src/server.js` — entrypoint LOCAL (importa `app.js` e dá `listen`)
+- `api/index.js` — handler serverless da Vercel (reusa o `app`)
+- `vercel.json` — roteia tudo para a função + `includeFiles: src/**` (views EJS / estáticos)
 - `src/db.js` — camada de dados + cache (máquinas 15s, eventos 5min)
 - `src/sheet.js` — wrapper Google Sheets v4 (batch updates)
 - `src/utils/datas.js` — helpers de data em horário LOCAL (ver abaixo)
@@ -34,12 +38,15 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
 `diffDiasDeHoje`) e comparar **só a data** (sem hora). No cliente (EJS), parsear com
 `new Date(ano, mes-1, dia)`.
 
-## Variáveis de ambiente (.env / render)
+## Variáveis de ambiente (.env / Vercel)
 - `GOOGLE_SERVICE_ACCOUNT_JSON` — JSON da service account (obrigatório)
 - `SPREADSHEET_ID` — id da planilha (tem default no código)
 - `SESSION_SECRET` — **definir em produção** (senão usa valor inseguro com aviso no log)
-- `NODE_ENV=production` — ativa cookie `secure` (HTTPS). Definir no render.
-- `PORT` — opcional (default 3000)
+- `NODE_ENV` — **não setar na Vercel** (ela já põe `production` sozinha; setar `development` desliga o cookie `secure`). Local usa `.env`.
+- `PORT` — opcional, só local (default 3000). Ignorado em serverless.
+
+Na Vercel as 3 primeiras estão em **Production + Preview**. Deployment Protection (Vercel
+Authentication) está **desligada** — o acesso é controlado pelo login do próprio app.
 
 ## Rodar local
 1. Criar `.env` com `GOOGLE_SERVICE_ACCOUNT_JSON` e `SPREADSHEET_ID` (já no `.gitignore`).
@@ -49,6 +56,22 @@ Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`
 ---
 
 ## Histórico de mudanças por agentes
+
+### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
+- **Motivo**: cortar custo do Render (pago por serviço); a Vercel Pro já estava paga.
+- **Refactor**: `src/server.js` dividido em `src/app.js` (config do Express, exporta `app`)
+  + `src/server.js` (só o `listen` local). Novo `api/index.js` (handler serverless) e
+  `vercel.json` (rewrite de tudo p/ a função + `includeFiles: src/**` p/ empacotar views/estáticos).
+- **Por que funciona em serverless sem dor**: já usava `cookie-session` (sessão no cookie,
+  não em memória) e Sheets via HTTP (sem conexão persistente); sem jobs de fundo.
+  Ressalva: o cache em memória de `db.js` (15s/5min) e o rate-limit de login perdem efeito
+  entre invocações — aceitável no volume atual; dá p/ compensar depois com cache de CDN.
+- **Deploy**: projeto importado na Vercel (preset `Other`, root `./`), env vars coladas
+  (Production+Preview), `main` é a branch de produção. Deployment Protection desligada.
+- **Validado**: `/login` 200 em produção (`x-powered-by: Express`, EJS + estáticos OK).
+- **Render**: a ser desligado pelo Marcio após validar o login em produção.
+- ⚠️ **Pendência de segurança**: a private key da service account apareceu num print durante
+  a migração → **rotacionar a chave** no Google Cloud (nova chave → atualizar `.env` + Vercel → apagar antiga).
 
 ### 2026-06-03 — fix de datas/timezone + hardening (branch `fix/datas-timezone-e-seguranca`)
 - **Bug do "Dentro do prazo" vs vencida**: cálculo de `atrasadas` (`db.js`) e filtros de
