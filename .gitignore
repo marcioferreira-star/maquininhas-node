@@ -3,3 +3,5 @@ credentials.json
 node_modules
 .vercel
 .claude
+etl-saida
+tmp-revisar
