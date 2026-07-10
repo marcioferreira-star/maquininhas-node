@@ -44,6 +44,18 @@ function isFresh(ts, ttlMs) {
 }
 
 /* ============================================================
+   🔵 INVALIDAR CACHE DE MÁQUINAS
+   - Chamar APÓS qualquer escrita na CONTROLE (envio/retorno/status),
+     senão o dashboard/lista servem o snapshot pré-escrita por até 15s.
+============================================================ */
+export function invalidarCacheMaquinas() {
+  CACHE.maquinas.ts = 0;
+  CACHE.maquinas.data = [];
+  CACHE.maquinasIndex.ts = 0;
+  CACHE.maquinasIndex.data = new Map();
+}
+
+/* ============================================================
    🔵 CARREGAR LISTA DE MÁQUINAS (A → O)  (COM CACHE)
 ============================================================ */
 export async function getMaquinas(options = {}) {
@@ -54,7 +66,9 @@ export async function getMaquinas(options = {}) {
       return CACHE.maquinas.data;
     }
 
-    const range = `'${SHEET_NAME}'!A2:O2000`;
+    // range ABERTO (A2:O) — o Sheets limita pelo fim dos dados. Antes era
+    // A2:O2000, que truncaria silenciosamente ao passar de ~2000 máquinas.
+    const range = `'${SHEET_NAME}'!A2:O`;
     const dados = await getSheetData(range);
 
     if (!dados || dados.length === 0) {
@@ -109,12 +123,18 @@ export async function getMaquinasIndex(options = {}) {
     const arr = await getMaquinas({ force });
 
     const map = new Map();
+    // seriais que aparecem 2×+ na CONTROLE são ambíguos: map.set sobrescreveria
+    // silenciosamente e a resolução "sempre pelo serial" gravaria na linha errada.
+    // Guardamos os duplicados p/ a rota recusar a operação (ver api.js).
+    const duplicados = new Set();
     for (const m of arr) {
       const serial = String(m.serial || "").trim();
       if (serial && serial !== "-") {
+        if (map.has(serial)) duplicados.add(serial);
         map.set(serial, m);
       }
     }
+    map.duplicados = duplicados;
 
     CACHE.maquinasIndex.ts = now();
     CACHE.maquinasIndex.data = map;
@@ -276,7 +296,8 @@ export async function registrarMovimento(info) {
 ============================================================ */
 export async function getHistorico() {
   try {
-    const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K20000`);
+    // range ABERTO (A2:K) — HISTORICO é append-only e cresce sempre; teto fixo truncaria.
+    const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K`);
     if (!dados || dados.length === 0) return [];
 
     // índice do ÚLTIMO movimento de cada serial (planilha está em ordem cronológica de append)

@@ -37,6 +37,10 @@ const MAX_TENTATIVAS = 5;
 const JANELA_MS = 10 * 60 * 1000; // 10 min
 const tentativas = new Map(); // chave -> { count, bloqueadoAte }
 
+// hash fixo p/ rodar bcrypt.compare mesmo quando o e-mail não existe — iguala o
+// tempo de resposta e não vaza a existência do e-mail por timing.
+const DUMMY_HASH = bcrypt.hashSync("timing-dummy", 10);
+
 function chaveTentativa(req, email) {
   return `${req.ip || ""}|${String(email || "").toLowerCase()}`;
 }
@@ -67,40 +71,59 @@ router.get("/login", (req, res) => {
    POST /login
 ============================================================ */
 router.post("/login", async (req, res) => {
-  const { email, senha } = req.body;
-  const chave = chaveTentativa(req, email);
+  try {
+    const { email, senha } = req.body || {};
 
-  if (estaBloqueado(chave)) {
-    return res.render("login", {
+    // corpo malformado / campos ausentes → mensagem genérica (não 500/pendura)
+    if (!email || !senha) {
+      return res.status(400).render("login", {
+        page: "login",
+        erro: "E-mail ou senha inválidos."
+      });
+    }
+
+    const chave = chaveTentativa(req, email);
+
+    if (estaBloqueado(chave)) {
+      return res.status(429).render("login", {
+        page: "login",
+        erro: "Muitas tentativas. Tente novamente em alguns minutos."
+      });
+    }
+
+    const users = loadUsers();
+    const user = users.find(u => u.email === email);
+
+    // roda bcrypt SEMPRE (contra hash dummy quando o e-mail não existe) p/ igualar
+    // o tempo de resposta; mensagem genérica não revela se o e-mail existe.
+    const senhaOk = await bcrypt.compare(senha, user ? user.senha : DUMMY_HASH);
+    const ok = senhaOk && !!user;
+
+    if (!ok) {
+      registrarFalha(chave);
+      return res.status(401).render("login", {
+        page: "login",
+        erro: "E-mail ou senha inválidos."
+      });
+    }
+
+    // sucesso → zera o contador dessa chave
+    tentativas.delete(chave);
+
+    // Sessão salva — acessível em qualquer EJS via res.locals.user
+    req.session.user = {
+      nome: user.nome,
+      email: user.email
+    };
+
+    return res.redirect("/");
+  } catch (err) {
+    console.error("❌ Erro no /login:", err);
+    return res.status(500).render("login", {
       page: "login",
-      erro: "Muitas tentativas. Tente novamente em alguns minutos."
+      erro: "Erro interno. Tente novamente."
     });
   }
-
-  const users = loadUsers();
-  const user = users.find(u => u.email === email);
-
-  // mensagem genérica nos dois casos (não revela se o e-mail existe)
-  const ok = user ? await bcrypt.compare(senha, user.senha) : false;
-
-  if (!ok) {
-    registrarFalha(chave);
-    return res.render("login", {
-      page: "login",
-      erro: "E-mail ou senha inválidos."
-    });
-  }
-
-  // sucesso → zera o contador dessa chave
-  tentativas.delete(chave);
-
-  // Sessão salva — acessível em qualquer EJS via res.locals.user
-  req.session.user = {
-    nome: user.nome,
-    email: user.email
-  };
-
-  return res.redirect("/");
 });
 
 /* ============================================================

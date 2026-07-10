@@ -1,7 +1,35 @@
 // src/utils/datas.js
-// Helpers de data em horário LOCAL (BRT).
+// Helpers de data no fuso de Brasília (America/Sao_Paulo).
 // ⚠️ Nunca usar new Date("YYYY-MM-DD") nem new Date("dd/mm/aaaa"):
 //    o 1º vira UTC (regride 1 dia em BRT) e o 2º é inválido/ambíguo.
+// ⚠️ "hoje" é SEMPRE derivado de America/Sao_Paulo via Intl — nunca do TZ do
+//    processo. Na Vercel (serverless) o processo roda em UTC; usar o TZ do
+//    processo faria "hoje" virar o dia seguinte entre 21h e 24h BRT (grava a
+//    data de retorno errada e conta atraso 1 dia cedo).
+
+/**
+ * Componentes de calendário de "agora" no fuso America/Sao_Paulo,
+ * independentes do TZ do processo (en-CA formata como aaaa-mm-dd).
+ */
+function partesHojeBRT() {
+  const s = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+  const [ano, mes, dia] = s.split("-").map(Number);
+  return { ano, mes, dia };
+}
+
+/**
+ * Data de hoje em "dd/mm/aaaa", no fuso de Brasília.
+ * Fonte única para carimbar datas (envio/retorno) — não usar new Date() cru.
+ */
+export function hojeBR() {
+  const { ano, mes, dia } = partesHojeBRT();
+  return `${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
+}
 
 /**
  * Converte "dd/mm/aaaa" em um Date à meia-noite LOCAL.
@@ -18,11 +46,18 @@ export function parseBRDate(br) {
 }
 
 /**
- * Retorna a data de hoje à meia-noite local (sem hora),
- * para comparar dia-a-dia sem o ruído do horário atual.
+ * Data à meia-noite para comparação dia-a-dia (sem o ruído do horário).
+ * - Sem argumento: HOJE no fuso de Brasília (não depende do TZ do processo).
+ * - Com um Date: meia-noite daquele Date (compat; usado só em testes).
+ * O Date é construído com new Date(ano, mes-1, dia), igual ao parseBRDate,
+ * então a comparação retornoBR < hoje é puramente de calendário.
  */
-export function startOfDayLocal(date = new Date()) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+export function startOfDayLocal(date) {
+  if (date instanceof Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+  const { ano, mes, dia } = partesHojeBRT();
+  return new Date(ano, mes - 1, dia);
 }
 
 /**
