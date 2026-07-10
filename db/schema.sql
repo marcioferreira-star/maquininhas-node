@@ -140,21 +140,7 @@ FROM maquina m;
 -- Só linhas com motivo_revisao = '{}' (ou já decididas) são PROMOVIDAS ao public.
 -- ----------------------------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS staging;
-
-CREATE TABLE staging.controle (
-  origem_linha     INT,
-  raw              JSONB,
-  serial           TEXT,
-  status_raw       TEXT,
-  status           maquina_status,
-  local            praca,
-  id_evento_raw    TEXT,
-  id_evento        BIGINT,
-  data_saida_raw   TEXT,
-  data_saida       DATE,
-  data_retorno_raw TEXT,
-  data_retorno     DATE,
-  motivo_revisao   TEXT[] NOT NULL DEFAULT '{}'
-);
--- (idem staging.historico, staging.eventos, staging.perdidas, staging.trocas,
---  staging.localizar — mesma ideia: raw + parseado + motivo_revisao)
+-- O DDL COMPLETO das 6 tabelas staging (controle/historico/eventos/perdidas/
+-- trocas/localizar) vive em tools/etl/import-staging.js, que faz DROP+CREATE+LOAD
+-- (self-contido, re-runnable). Cada uma: raw JSONB + colunas parseadas +
+-- motivo_revisao TEXT[]. A PROMOÇÃO staging→public depende da curadoria (decisão humana).
