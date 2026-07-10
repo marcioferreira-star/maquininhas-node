@@ -153,6 +153,7 @@
           <th>Empresa</th>
           <th>ID Evento</th>
           <th>Data Retorno</th>
+          <th>Obs</th>
           <th>Ação</th>
         </tr>
       </thead>
@@ -170,6 +171,7 @@
           data-produtora="<%= (m.produtora || '-') %>"
           data-comercial="<%= (m.comercial || '-') %>"
           data-retorno="<%= (m.dataRetorno || '-') %>"
+          data-processando="<%= (m.processando || '-').trim() %>"
         >
           <td><%= i + 1 %></td>
           <td><%= m.modelo || '-' %></td>
@@ -192,8 +194,16 @@
           <!-- ✅ Fixo também mostra retorno (vai ser "-") -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
 
+          <!-- OBSERVAÇÃO (col P) + Operadora/Chip no tooltip + badge "Processando" -->
+          <% const _obs = (m.observacao && m.observacao !== '-') ? m.observacao : ''; %>
+          <% const _tip = [ (m.operadora && m.operadora !== '-') ? ('Operadora: ' + m.operadora) : '', (m.infoChip && m.infoChip !== '-') ? ('Chip: ' + m.infoChip) : '', _obs ? ('Obs: ' + _obs) : '' ].filter(Boolean).join('  |  '); %>
+          <td class="obs-cell" title="<%= _tip %>">
+            <span style="display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _obs %></span>
+            <% if (String(m.processando).trim() === 'Sim') { %><span class="badge-proc">proc.</span><% } %>
+          </td>
+
           <td>
-            <button 
+            <button
               class="btn-salvar"
               data-serial="<%= m.serial %>"
               data-select="status_<%= m.linha %>"
@@ -204,6 +214,10 @@
         </tr>
 
         <% }) %>
+
+        <tr id="emptyRow" class="empty-row" style="<%= maquinas.length === 0 ? '' : 'display:none' %>">
+          <td colspan="9">Nenhuma máquina encontrada para os filtros aplicados.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -238,6 +252,8 @@ let statusInicial = (_params.get("f") || "").toLowerCase().trim();
 function atualizarContador() {
   const vis = linhas.filter(l => l.style.display !== "none").length;
   contador.innerHTML = `Exibindo <b>${vis}</b> de <b>${linhas.length}</b> máquinas`;
+  const empty = document.getElementById("emptyRow");
+  if (empty) empty.style.display = (vis === 0) ? "" : "none";
 }
 
 /* ============================================================
@@ -407,23 +423,49 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
   btn.addEventListener("click", async () => {
     const serial = btn.dataset.serial;
     const status = document.getElementById(btn.dataset.select).value;
+    const row = btn.closest("tr");
 
-    const resp = await fetch("/api/atualizar-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serial, status })
-    });
+    // avisa se a máquina está marcada como "Processando?" (col H)
+    if (row && row.dataset.processando === "Sim") {
+      if (!confirm("Esta máquina está marcada como 'Processando'. Alterar o status mesmo assim?")) return;
+    }
 
-    const data = await resp.json();
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/atualizar-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serial, status })
+      });
+      const data = await resp.json();
 
-    if (data.ok) {
-      alert("Status atualizado!");
-      location.reload();
-    } else {
-      alert("Erro ao atualizar.");
+      if (data.ok) {
+        showToast("Status atualizado");
+        if (row) {
+          // atualização in-place (preserva filtros/rolagem — sem location.reload)
+          row.dataset.status = status;
+          // reflete a limpeza de evento/retorno que o backend faz ao virar Estoque/Fixo
+          if (status.startsWith("Estoque")) {
+            row.children[5].textContent = "-";
+            row.children[6].textContent = "-";
+          } else if (status === "Fixo") {
+            row.children[6].textContent = "-";
+          }
+          aplicarFiltros(); // a linha pode sair do filtro atual
+        }
+      } else {
+        showToast(data.msg || "Erro ao atualizar", "err");
+      }
+    } catch (e) {
+      showToast("Erro de rede ao salvar", "err");
+    } finally {
+      btn.disabled = false;
     }
   });
 });
+
+// contador + empty-state no load (antes só atualizava ao filtrar)
+atualizarContador();
 
 /* INIT */
 atualizarFiltrosInteligentes();

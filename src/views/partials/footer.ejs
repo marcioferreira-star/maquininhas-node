@@ -30,7 +30,25 @@
     document.documentElement.setAttribute('data-theme', novo);
     try { localStorage.setItem('theme', novo); } catch(e){}
   }
+
+  // toast não-bloqueante: showToast("mensagem", "ok"|"err")
+  function showToast(msg, tipo){
+    var area = document.getElementById('toastArea');
+    if (!area) return;
+    var t = document.createElement('div');
+    t.className = 'toast ' + (tipo === 'err' ? 'err' : 'ok');
+    t.setAttribute('role', 'status');
+    t.textContent = msg;
+    area.appendChild(t);
+    requestAnimationFrame(function(){ t.classList.add('show'); });
+    setTimeout(function(){
+      t.classList.remove('show');
+      setTimeout(function(){ t.remove(); }, 250);
+    }, 2600);
+  }
 </script>
+
+<div id="toastArea"></div>
 
 <footer style="text-align:center; padding:18px 0; color:var(--muted); font-size:14px; border-top:1px solid var(--border);">
   © <%= new Date().getFullYear() %> Ingresse. Todos os direitos reservados.

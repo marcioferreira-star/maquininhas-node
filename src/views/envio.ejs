@@ -501,13 +501,13 @@ form.addEventListener("submit", async (e) => {
     }
 
     if (data && data.ok) {
-      alert("Movimentação registrada!");
-      location.reload();
+      showToast("Movimentação registrada");
+      setTimeout(() => location.reload(), 1100); // recarrega p/ refletir os novos status
     } else {
-      alert((data && data.msg) ? data.msg : "Erro ao registrar.");
+      showToast((data && data.msg) ? data.msg : "Erro ao registrar.", "err");
     }
   } catch (err) {
-    alert("Erro de rede.");
+    showToast("Erro de rede.", "err");
   } finally {
     btnRegistrar.disabled = false;
     btnRegistrar.textContent = txtOriginal;

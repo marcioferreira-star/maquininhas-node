@@ -66,10 +66,10 @@ export async function getMaquinas(options = {}) {
     return CACHE.maquinas.data;
   }
 
-  // range ABERTO (A2:O) — o Sheets limita pelo fim dos dados. Antes era
-  // A2:O2000, que truncaria silenciosamente ao passar de ~2000 máquinas.
+  // range ABERTO (A2:P) — inclui Operadora(D), Info Chip(E), Processando(H) e
+  // OBSERVAÇÃO(P), antes ignoradas. O Sheets limita pelo fim dos dados.
   // getSheetData PROPAGA erro (throw) → não cacheamos [] disfarçando falha de API.
-  const range = `'${SHEET_NAME}'!A2:O`;
+  const range = `'${SHEET_NAME}'!A2:P`;
   const dados = await getSheetData(range);
 
   if (!dados || dados.length === 0) {
@@ -85,7 +85,10 @@ export async function getMaquinas(options = {}) {
     linha: i + 2,
     modelo: linha[1] || "-",
     serial: linha[2] || "-",
+    operadora: linha[3] || "-",     // col D
+    infoChip: linha[4] || "-",      // col E
     status: linha[6] || "-",
+    processando: linha[7] || "-",   // col H
     empresa: linha[8] || "-",
     idEvento: linha[9] || "-",
     nomeEvento: linha[10] || "-",
@@ -93,7 +96,8 @@ export async function getMaquinas(options = {}) {
     comercial: linha[12] || "-",
     // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
     dataSaida: serialSheetParaBR(linha[13]) || "-",
-    dataRetorno: serialSheetParaBR(linha[14]) || "-"
+    dataRetorno: serialSheetParaBR(linha[14]) || "-",
+    observacao: linha[15] || "-"    // col P
   }));
 
   CACHE.maquinas.ts = now();

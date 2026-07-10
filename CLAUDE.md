@@ -106,7 +106,12 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - **Login reskin** (preto + Blood Orange), `width:min(420px,92vw)`.
   - Tokenizados os `<style>` inline de todas as telas (dashboard/máquinas/histórico/envio) p/ funcionar em dark; removido CSS morto do `style.css`.
   - ✅ **VERIFICADO NO NAVEGADOR** (preview + usuário de teste local, revertido): login/dashboard/máquinas/envio em **light e dark**, toggle persistindo, filtro dos KPIs funcionando (`?f=estoque` → 80). Fonte: stack de sistema com "Inter" (self-host do woff2 fica p/ quando tivermos os arquivos da fonte).
-- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras e toast/atualização in-place; exibir OBSERVAÇÃO/Operadora/Chip (col D/E/P) na tela Máquinas; empty-state da tabela Máquinas; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
+- **Ajustes de UX/design (branch `feat/ajustes-ux`, stacked sobre a onda4):**
+  - `db.js` lê col P (OBSERVAÇÃO) + D (Operadora) + E (Info Chip) + H (Processando) — range `A2:P`. Tela **Máquinas** ganha coluna **Obs** (com Operadora/Chip no tooltip) + badge **"proc."** quando Processando=Sim, e o Salvar **avisa** antes de alterar máquina em processamento.
+  - **Toast** não-bloqueante (`showToast` no footer + `.toast` no CSS) substitui `alert()`: Salvar status agora atualiza a linha **in-place** (preserva filtros, sem `location.reload`); Envio mostra toast.
+  - **Empty-state** na tabela Máquinas (sem dados / filtro sem resultado) + contador correto no load.
+  - ✅ Verificado no navegador (DOM): 552 células Obs, 5 badges "proc" (= 5 Processando no banco), empty-state ao filtrar 0, toast ok(verde)/err(vermelho). (Screenshots do preview travaram — problema do renderer, não do código.)
+- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
 - Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente). Onda 3: `GET /api/evento/:id` validado read-only (evento real encontrado, inexistente→null) + boot com rotas novas registradas/protegidas. ⚠️ **Verificação VISUAL das telas logadas (KPIs clicáveis, eco/cadastro no Envio, data default) pendente — o Marcio confere no preview/prod.**
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
