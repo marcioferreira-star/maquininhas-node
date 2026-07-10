@@ -22,21 +22,42 @@ e status de hardware de checkout para eventos. Estoque em **SP, RJ e URA**.
 - `src/views/` — EJS + partials
 - `src/auth/` — middleware de sessão, `createUser.js`, `users.json`
 
-## Planilha (3 abas)
-- `CONTROLE MAQUININHAS PAGSEGURO - INGRESSE` — cadastro (cols A–O). Colunas usadas:
+## Planilha (6 abas — o app só conhece 3)
+O app lê/escreve APENAS estas 3:
+- `CONTROLE MAQUININHAS PAGSEGURO - INGRESSE` — cadastro. Colunas USADAS:
   B=modelo, C=serial, G=status, I=empresa, J=idEvento, K=nomeEvento, L=produtora,
-  M=comercial, N=dataSaída, O=dataRetorno.
-- `HISTORICO MAQUINAS` — log de movimentos (cols A–K)
-- `DADOS EVENTOS` — cadastro de eventos (cols A–D)
+  M=comercial, N=dataSaída, O=dataRetorno. ⚠️ A leitura para em O de propósito;
+  **D=Operadora, E=Info Chip, F=verificação, H=Processando?, P=OBSERVAÇÃO, R=Count são IGNORADAS**.
+- `HISTORICO MAQUINAS` — log de movimentos (cols A–K; col F "Status" é texto congelado, o app recalcula ao vivo e ignora).
+- `DADOS EVENTOS` — cadastro de eventos (cols A–D).
+
+⚠️ **Existem +3 abas que o app NÃO conhece** e os operadores editam à mão (origem provável das datas-lixo `01/01/2040`, `15/07/1905`):
+- `PERDIDAS PAGSEGURO - INGRESSE` (máquinas perdidas; schema próprio, col J="Responsável" ≠ Produtora)
+- `TROCAS` (defeituosa→nova: Maq com Defeito, Problema, Local, NOVA)
+- `LOCALIZAR` (mesmo layout da CONTROLE; máquinas a localizar)
 
 Fluxo: Envio → "Em Uso"/"Fixo" → Retorno → "Estoque". Status "Fixo" não tem retorno.
 
 ## ⚠️ Datas (regra crítica)
-Datas na planilha são **BR `dd/mm/aaaa`**. **NUNCA** usar `new Date("aaaa-mm-dd")`
-(vira UTC e regride 1 dia em BRT) nem `new Date("dd/mm/aaaa")` (inválido).
-Sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`,
-`diffDiasDeHoje`) e comparar **só a data** (sem hora). No cliente (EJS), parsear com
-`new Date(ano, mes-1, dia)`.
+Regra transversal (nunca `new Date('YYYY-MM-DD')` — ver manual raiz `~/.claude/CLAUDE.md` §5).
+Específico daqui: datas na planilha são **BR `dd/mm/aaaa`** (`new Date("dd/mm/aaaa")` é inválido);
+sempre usar os helpers de `src/utils/datas.js` (`parseBRDate`, `startOfDayLocal`, `diffDiasDeHoje`)
+e comparar **só a data** (sem hora) — vencimento HOJE conta como no prazo. No cliente (EJS),
+parsear com `new Date(ano, mes-1, dia)`.
+
+## Automação GAS da planilha (script bound)
+A planilha `CONTROLE MAQUININHAS PAGSEGURO - INGRESSE` tem um Apps Script **bound** (fora deste
+repo) com as automações de aba. Regra fixa: **toda automação de envio termina chamando
+`pintarProximosEnvios`** (repinta a faixa de próximos envios) — sem isso a planilha fica com
+destaque defasado. (Clonar o script via `clasp clone` para `apps-script/` fica como opcional —
+o Marcio decidiu não versionar por ora, 09/07/2026; o script não está na conta clasp dele.)
+
+## Régua de qualidade (entregável correto =)
+- `npm test` (datas) e `npm run lint` verdes.
+- Envio grava CONTROLE + HISTORICO ou nada (rollback) — nunca meia-operação.
+- Linha resolvida SEMPRE pelo serial (nunca pelo índice vindo do front).
+- Datas comparadas sem hora; vencimento hoje = no prazo.
+- Após automação de envio na planilha, `pintarProximosEnvios` executado.
 
 ## Variáveis de ambiente (.env / Vercel)
 - `GOOGLE_SERVICE_ACCOUNT_JSON` — JSON da service account (obrigatório)
@@ -57,6 +78,21 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-10 — Auditoria minuciosa + Onda 0/1 (branch `feat/onda0-blindagem-e-fuso`)
+- **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
+- **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
+- **Onda 0 — blindagem:**
+  - CI: `.github/workflows/ci.yml` roda lint+test em todo push/PR (antes nada rodava; auto-deploy na main).
+  - `SESSION_SECRET` **fail-closed** (`app.js` dá `throw` em produção sem a env). ⚠️ **Rotacionar a chave** — o literal antigo `super-secret-ingresse` estava no git.
+  - Headers de segurança (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, HSTS em prod) + `disable('x-powered-by')`.
+  - **Validação de status no BACKEND** (`api.js`): Envio exige Estoque, Retorno exige Em Uso/Fixo; recusa **serial duplicado** na CONTROLE; valida `retorno >= saida`.
+  - `login.js`: try/catch + validação de body (fim do 500/pendura) + `bcrypt.compare` dummy contra timing.
+  - `db.js`: ranges ABERTOS `A2:O` / `A2:K` (fim do truncamento); `invalidarCacheMaquinas()` chamado após escrita; índice detecta seriais duplicados.
+  - HTTP status reais (400/404/409/422/500) nas rotas de API; política ÚNICA no retorno (limpa J..M no CONTROLE, mantém vínculo no HISTÓRICO).
+  - Higiene: `engines`+`.nvmrc` (Node 20), footer com ano dinâmico, contraste do badge "Vence hoje", `alt` no logo do login, comentário ESLint 10.
+- **DEFERIDO (precisa de decisão/smoke test):** gravar datas como `RAW` (A2) — muda o tipo das células numa planilha viva com Apps Script bound; fazer só após clonar/entender o GAS. Migração Neon, design system, telas de exceção: ondas seguintes.
+- Testes 8/8 verdes, lint limpo, smoke test de boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403).
+
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
 - **Motivo**: cortar custo do Render (pago por serviço); a Vercel Pro já estava paga.
 - **Refactor**: `src/server.js` dividido em `src/app.js` (config do Express, exporta `app`)
@@ -70,8 +106,10 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   (Production+Preview), `main` é a branch de produção. Deployment Protection desligada.
 - **Validado**: `/login` 200 em produção (`x-powered-by: Express`, EJS + estáticos OK).
 - **Render**: a ser desligado pelo Marcio após validar o login em produção.
-- ⚠️ **Pendência de segurança**: a private key da service account apareceu num print durante
-  a migração → **rotacionar a chave** no Google Cloud (nova chave → atualizar `.env` + Vercel → apagar antiga).
+- ✅ **Pendência de segurança RESOLVIDA (09/07/2026)**: a private key que apareceu num print foi
+  **rotacionada** (chave nova no `.env` + Vercel Production/Preview, produção validada ao vivo,
+  chave antiga excluída no GCP). O vazamento paralelo via histórico git foi **purgado** no mesmo dia
+  (o commit sujo nunca chegou ao GitHub). Mapa de credenciais: `_shared/ROTACAO-CREDENCIAIS.md`.
 
 ### 2026-06-03 — fix de datas/timezone + hardening (branch `fix/datas-timezone-e-seguranca`)
 - **Bug do "Dentro do prazo" vs vencida**: cálculo de `atrasadas` (`db.js`) e filtros de
@@ -120,13 +158,9 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   `npm install` no deploy.
 
 ## ❓ Aberto / a confirmar
-- (nada pendente no momento)
-- **Divergência produção × repositório**: o print do Marcio (tela /historico) mostra uma
-  coluna *Status* com "Dentro do prazo"/"Atrasado" que **não existe em nenhuma branch**.
-  Hipótese: o site no render roda um build antigo que gravava esse status como texto FIXO
-  na planilha (calculado no envio, nunca recalculado). **Confirmar se o site no ar bate com
-  este código.** Se a ideia é ter esse selo, ele deve ser calculado AO VIVO (no render),
-  nunca congelado.
+- **Decisões pendentes do Marcio (pós-auditoria 10/07):** rotacionar `SESSION_SECRET`; senha única compartilhada (manter × por-usuário); autorizar clonar o Apps Script bound (`pintarProximosEnvios`) via clasp — pré-requisito da migração Neon; acesso editor à planilha (só na fase de escrita).
+- **A2 (gravar datas como RAW) deferido:** precisa do smoke test do GAS bound antes (muda tipo de célula em planilha viva).
+- ~~Coluna "Status" congelada no /historico~~ **RESOLVIDO:** é a col F do HISTORICO (texto "Atrasado"/"Dentro do prazo" gravado no envio, nunca recalculado). O app JÁ recalcula a situação AO VIVO (`db.js:getHistorico` + `situacaoPrazo`) e IGNORA a col F. Não migrar essa coluna (é derivada).
 
 ## 🔧 Recomendações pendentes (não feitas ainda)
 - **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio

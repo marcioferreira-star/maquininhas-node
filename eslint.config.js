@@ -1,4 +1,4 @@
-// eslint.config.js — flat config (ESLint 9)
+// eslint.config.js — flat config (ESLint 10)
 import js from "@eslint/js";
 import globals from "globals";
 

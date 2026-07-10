@@ -29,6 +29,25 @@ const IS_PROD = process.env.NODE_ENV === "production";
 // Render/Vercel/etc terminam o TLS num proxy. Sem isso o cookie "secure" nunca é enviado.
 app.set("trust proxy", 1);
 
+// não vaza a stack (Express) no header
+app.disable("x-powered-by");
+
+/* ============================================================
+   HEADERS DE SEGURANÇA (hardening barato, sem dependência nova)
+   - X-Frame-Options: bloqueia clickjacking (embutir a tela logada em iframe)
+   - X-Content-Type-Options: nosniff
+   - HSTS só em produção (força HTTPS no cliente)
+============================================================ */
+app.use((req, res, next) => {
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "same-origin");
+  if (IS_PROD) {
+    res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+  }
+  next();
+});
+
 /* ============================================================
    MIDDLEWARES BÁSICOS
 ============================================================ */
@@ -41,17 +60,25 @@ app.use(express.json());
    - Sobrevive a restart/deploy e funciona em serverless (sem
      instância fixa em memória) e não vaza memória.
 ============================================================ */
+// FAIL-CLOSED: em produção, sem SESSION_SECRET o app NÃO sobe — assim nunca
+// assina o cookie com uma chave padrão conhecida (que permitiria forjar sessão).
 if (!process.env.SESSION_SECRET) {
+  if (IS_PROD) {
+    throw new Error(
+      "SESSION_SECRET não definido em produção. Defina a variável de ambiente " +
+      "antes do deploy (fail-closed intencional)."
+    );
+  }
   console.warn(
-    "⚠️  SESSION_SECRET não definido — usando valor padrão INSEGURO. " +
-    "Defina a variável de ambiente SESSION_SECRET em produção."
+    "⚠️  SESSION_SECRET não definido — usando valor de desenvolvimento INSEGURO. " +
+    "Só aceitável em ambiente local."
   );
 }
 
 app.use(
   cookieSession({
     name: "sess",
-    keys: [process.env.SESSION_SECRET || "super-secret-ingresse"],
+    keys: [process.env.SESSION_SECRET || "dev-only-inseguro-nao-usar-em-prod"],
     httpOnly: true,            // bloqueia acesso via JS (XSS)
     secure: IS_PROD,           // só envia em HTTPS quando NODE_ENV=production
     sameSite: "lax",           // mitiga CSRF em navegação cross-site

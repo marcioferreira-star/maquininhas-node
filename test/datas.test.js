@@ -2,12 +2,14 @@
 // Roda com: npm test   (usa o runner nativo do Node: node --test)
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import {
   parseBRDate,
   startOfDayLocal,
   diffDiasDeHoje,
   situacaoPrazo,
-  serialSheetParaBR
+  serialSheetParaBR,
+  hojeBR
 } from "../src/utils/datas.js";
 
 // helper: formata um Date em "dd/mm/aaaa" no fuso local
@@ -69,4 +71,34 @@ test("serialSheetParaBR — número de série vira data; texto fica igual", () =
   assert.equal(serialSheetParaBR("-"), "-");
   assert.equal(serialSheetParaBR(""), "");
   assert.equal(serialSheetParaBR("0"), "0"); // número pequeno não é data
+});
+
+test("hojeBR — formato dd/mm/aaaa válido", () => {
+  const s = hojeBR();
+  assert.match(s, /^\d{2}\/\d{2}\/\d{4}$/);
+  const [d, m, y] = s.split("/").map(Number);
+  assert.ok(d >= 1 && d <= 31);
+  assert.ok(m >= 1 && m <= 12);
+  assert.ok(y >= 2020);
+});
+
+// Regressão do bug de fuso: "hoje" é derivado de America/Sao_Paulo, então NÃO
+// pode depender do TZ do processo. Rodamos hojeBR() em dois fusos que diferem
+// 25h (UTC+14 e UTC-11) — no mesmo instante, sob o código antigo (TZ do
+// processo) eles cairiam em datas de calendário diferentes; com o fix, iguais.
+test("hojeBR — independente do TZ do processo (não regride o dia)", () => {
+  const modUrl = new URL("../src/utils/datas.js", import.meta.url).href;
+  const script = `import(${JSON.stringify(modUrl)}).then(m => process.stdout.write(m.hojeBR()))`;
+  const run = (tz) =>
+    execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+      env: { ...process.env, TZ: tz }
+    }).toString().trim();
+
+  const maisAdiantado = run("Pacific/Kiritimati"); // UTC+14
+  const maisAtrasado = run("Pacific/Pago_Pago");   // UTC-11
+  assert.equal(
+    maisAdiantado,
+    maisAtrasado,
+    "hojeBR deve ser a mesma data BRT mesmo em fusos que diferem 25h"
+  );
 });

@@ -1,0 +1,22 @@
+name: CI
+
+# Roda lint + testes em todo push e em todo PR.
+# Sem isso, uma quebra em utils/datas.js ou um erro de lint entra na main e
+# vai direto pra produção pelo auto-deploy da Vercel.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test

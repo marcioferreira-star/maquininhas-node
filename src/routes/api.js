@@ -4,10 +4,12 @@ import {
   registrarMovimento,
   getEventoInfo,
   getHistorico,
-  getMaquinasIndex
+  getMaquinasIndex,
+  invalidarCacheMaquinas
 } from "../db.js";
 
 import { batchUpdateValues } from "../sheet.js";
+import { hojeBR, parseBRDate } from "../utils/datas.js";
 
 const router = express.Router();
 
@@ -15,15 +17,9 @@ const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 
 /* ======================================================
    Utils
+   - hojeBR() e parseBRDate() vêm de utils/datas.js (fuso de Brasília,
+     independente do TZ do processo — ver datas.js).
 ====================================================== */
-function hojeBR() {
-  const hoje = new Date();
-  const y = hoje.getFullYear();
-  const m = String(hoje.getMonth() + 1).padStart(2, "0");
-  const d = String(hoje.getDate()).padStart(2, "0");
-  return `${d}/${m}/${y}`;
-}
-
 function toBR(dateStr) {
   if (!dateStr) return "-";
   const onlyDate = String(dateStr).slice(0, 10);
@@ -34,10 +30,8 @@ function toBR(dateStr) {
 
 // converte "dd/mm/aaaa" para timestamp (para comparar datas)
 function parseBRDateToTime(br) {
-  if (!br || br === "-") return 0;
-  const [d, m, y] = String(br).split("/");
-  if (!d || !m || !y) return 0;
-  return new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+  const d = parseBRDate(br);
+  return d ? d.getTime() : 0;
 }
 
 // garante que o "último envio" seja o mais recente pela data de saída
@@ -89,10 +83,10 @@ router.post("/registrar-envio", async (req, res) => {
     /* ============================
        VALIDAÇÕES BÁSICAS
     ============================ */
-    if (!acao) return res.json({ ok: false, msg: "Selecione a ação." });
+    if (!acao) return res.status(400).json({ ok: false, msg: "Selecione a ação." });
 
     if (!Array.isArray(seriais) || seriais.length === 0) {
-      return res.json({ ok: false, msg: "Nenhuma máquina selecionada." });
+      return res.status(400).json({ ok: false, msg: "Nenhuma máquina selecionada." });
     }
 
     const isEnvio = acao.includes("Envio");
@@ -106,22 +100,34 @@ router.post("/registrar-envio", async (req, res) => {
     ============================ */
     if (isEnvio) {
       if (!id_evento?.trim()) {
-        return res.json({ ok: false, msg: "Informe o ID do evento." });
+        return res.status(400).json({ ok: false, msg: "Informe o ID do evento." });
       }
 
       if (!dt_saida) {
-        return res.json({ ok: false, msg: "Data de saída obrigatória." });
+        return res.status(400).json({ ok: false, msg: "Data de saída obrigatória." });
       }
 
       // retorno só é obrigatório quando NÃO for Envio Fixo
       if (!isEnvioFixo && !dt_retorno) {
-        return res.json({ ok: false, msg: "Data de retorno obrigatória." });
+        return res.status(400).json({ ok: false, msg: "Data de retorno obrigatória." });
+      }
+
+      // valida data: retorno não pode ser anterior à saída
+      if (!isEnvioFixo) {
+        const tSaida = parseBRDateToTime(toBR(dt_saida));
+        const tRetorno = parseBRDateToTime(toBR(dt_retorno));
+        if (tSaida && tRetorno && tRetorno < tSaida) {
+          return res.status(400).json({
+            ok: false,
+            msg: "A data de retorno não pode ser anterior à data de saída."
+          });
+        }
       }
 
       eventoInfo = await getEventoInfo(id_evento);
 
       if (!eventoInfo) {
-        return res.json({
+        return res.status(404).json({
           ok: false,
           msg: `O ID ${id_evento} não existe na aba DADOS EVENTOS.`
         });
@@ -182,6 +188,13 @@ router.post("/registrar-envio", async (req, res) => {
         continue;
       }
 
+      // serial que aparece 2×+ na CONTROLE é ambíguo: não dá pra saber qual
+      // linha é a certa → recusa a operação em vez de gravar na máquina errada.
+      if (idxMaquinas.duplicados && idxMaquinas.duplicados.has(serial)) {
+        erros.push({ serial, step: "serial-duplicado" });
+        continue;
+      }
+
       const maquina = idxMaquinas.get(serial);
       if (!maquina) {
         erros.push({ serial, step: "not-found" });
@@ -194,6 +207,23 @@ router.post("/registrar-envio", async (req, res) => {
       if (!linha) {
         erros.push({ serial, step: "no-line" });
         continue;
+      }
+
+      // ✅ pré-condição de status no BACKEND (defesa em profundidade; hoje só o
+      // front valida). Envio exige máquina em Estoque; Retorno exige Em Uso/Fixo.
+      // Evita reenviar máquina já em uso (perde a locação) ou "retornar" uma de
+      // estoque (histórico inventado) via chamada direta ou tela velha.
+      const statusAtual = String(maquina.status || "").toLowerCase().trim();
+      if (isRetorno) {
+        if (!(statusAtual.includes("em uso") || statusAtual === "fixo")) {
+          erros.push({ serial, step: "nao-esta-em-uso", statusAtual: maquina.status });
+          continue;
+        }
+      } else if (isEnvio) {
+        if (!statusAtual.includes("estoque")) {
+          erros.push({ serial, step: "ja-fora-do-estoque", statusAtual: maquina.status });
+          continue;
+        }
       }
 
       /* =========================================
@@ -287,14 +317,18 @@ router.post("/registrar-envio", async (req, res) => {
           obs || "-"
         ]);
 
+        // ✅ política ÚNICA de retorno: o vínculo do evento fica registrado no
+        // HISTÓRICO (origem.*), mas no CONTROLE as colunas de evento (J..M) são
+        // LIMPAS — igual ao retorno órfão e ao /atualizar-status→Estoque. Antes,
+        // este caminho mantinha o evento e os três caminhos divergiam.
         rollbackUpdates.push(...snapshotRollback(linha, maquina));
         valueUpdates.push(
           { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
           { range: `'${SHEET_NAME}'!O${linha}`, value: hoje },
-          { range: `'${SHEET_NAME}'!J${linha}`, value: origem.evento },
-          { range: `'${SHEET_NAME}'!K${linha}`, value: origem.nome_evento },
-          { range: `'${SHEET_NAME}'!L${linha}`, value: origem.produtora },
-          { range: `'${SHEET_NAME}'!M${linha}`, value: origem.comercial }
+          { range: `'${SHEET_NAME}'!J${linha}`, value: "-" },
+          { range: `'${SHEET_NAME}'!K${linha}`, value: "-" },
+          { range: `'${SHEET_NAME}'!L${linha}`, value: "-" },
+          { range: `'${SHEET_NAME}'!M${linha}`, value: "-" }
         );
 
         continue;
@@ -358,11 +392,13 @@ router.post("/registrar-envio", async (req, res) => {
     if (valueUpdates.length > 0) {
       const okBatch = await batchUpdateValues(valueUpdates);
       if (!okBatch) {
-        return res.json({
+        return res.status(500).json({
           ok: false,
           msg: "Falha ao atualizar a planilha. Nada foi gravado, tente de novo."
         });
       }
+      // a planilha mudou → invalida o cache p/ o dashboard não servir o estado antigo
+      invalidarCacheMaquinas();
     }
 
     if (historicoRows.length > 0) {
@@ -372,8 +408,9 @@ router.post("/registrar-envio", async (req, res) => {
         if (rollbackUpdates.length > 0) {
           const okRb = await batchUpdateValues(rollbackUpdates);
           console.error("❌ Histórico falhou. Rollback do CONTROLE:", okRb ? "OK" : "FALHOU");
+          invalidarCacheMaquinas();
         }
-        return res.json({
+        return res.status(500).json({
           ok: false,
           msg: "Falha ao gravar o histórico. As alterações foram revertidas, tente de novo."
         });
@@ -384,9 +421,9 @@ router.post("/registrar-envio", async (req, res) => {
        RETORNO FINAL
     ======================================================= */
     if (erros.length > 0) {
-      return res.json({
+      return res.status(422).json({
         ok: false,
-        msg: "Alguns itens não foram processados.",
+        msg: `Alguns itens não foram processados (${erros.length}). Verifique status/duplicidade.`,
         erros
       });
     }
@@ -394,7 +431,7 @@ router.post("/registrar-envio", async (req, res) => {
     return res.json({ ok: true });
   } catch (err) {
     console.error("❌ ERRO /api/registrar-envio:", err);
-    return res.json({ ok: false, msg: "Erro interno no servidor." });
+    return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
   }
 });
 
@@ -403,15 +440,21 @@ router.post("/registrar-envio", async (req, res) => {
 ====================================================== */
 router.post("/atualizar-status", async (req, res) => {
   try {
-    const { serial, status } = req.body;
+    const { serial, status } = req.body || {};
 
-    if (!serial?.trim()) return res.json({ ok: false, msg: "Serial obrigatório." });
-    if (!status?.trim()) return res.json({ ok: false, msg: "Status obrigatório." });
+    if (!serial?.trim()) return res.status(400).json({ ok: false, msg: "Serial obrigatório." });
+    if (!status?.trim()) return res.status(400).json({ ok: false, msg: "Status obrigatório." });
 
     const idx = await getMaquinasIndex({ force: true }); // ✅ linha sempre atualizada
-    const m = idx.get(String(serial).trim());
+    const serialTrim = String(serial).trim();
 
-    if (!m) return res.json({ ok: false, msg: "Serial não encontrado." });
+    if (idx.duplicados && idx.duplicados.has(serialTrim)) {
+      return res.status(409).json({ ok: false, msg: "Serial duplicado na planilha — resolver a duplicidade antes." });
+    }
+
+    const m = idx.get(serialTrim);
+
+    if (!m) return res.status(404).json({ ok: false, msg: "Serial não encontrado." });
 
     const updates = [];
 
@@ -435,12 +478,14 @@ router.post("/atualizar-status", async (req, res) => {
     }
 
     const ok = await batchUpdateValues(updates);
-    if (!ok) return res.json({ ok: false, msg: "Falha ao atualizar." });
+    if (!ok) return res.status(500).json({ ok: false, msg: "Falha ao atualizar." });
+
+    invalidarCacheMaquinas(); // a planilha mudou → não servir estado antigo
 
     return res.json({ ok: true });
   } catch (err) {
     console.error("❌ ERRO /api/atualizar-status:", err);
-    return res.json({ ok: false, msg: "Erro interno no servidor." });
+    return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
   }
 });
 
