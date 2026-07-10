@@ -16,6 +16,7 @@ import envioRoutes from "./routes/envio.js";
 import apiRoutes from "./routes/api.js";
 import historicoRoutes from "./routes/historico.js";
 import excecoesRoutes from "./routes/excecoes.js";
+import syncRoutes from "./routes/sync.js";
 
 // Middleware de autenticação
 import { requireLogin } from "./auth/authMiddleware.js";
@@ -132,6 +133,10 @@ app.set("view engine", "ejs");
    ROTAS PÚBLICAS (LOGIN)
 ============================================================ */
 app.use("/", loginRoutes);
+
+// endpoint do Vercel Cron (autenticado por CRON_SECRET, NÃO por login) —
+// registrado ANTES de qualquer requireLogin (o mount "/" do dashboard casa com tudo).
+app.use("/api/sync-neon", syncRoutes);
 
 /* ============================================================
    ROTAS PRIVADAS (EXIGEM LOGIN)

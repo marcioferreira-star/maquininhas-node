@@ -1,0 +1,204 @@
+// src/sync-neon.js
+// Sync ONE-WAY (Planilha → Neon). Lê as 6 abas, carrega em staging (raw+parse+
+// motivo_revisao) e promove para as tabelas finais. Chamado pelo endpoint do
+// Vercel Cron. NÃO altera a planilha; a planilha continua sendo a fonte viva.
+//
+// Self-contido de propósito (roda no serverless da Vercel sem depender de ler
+// arquivos .sql). Os scripts em tools/etl/* são os equivalentes para rodar à mão.
+
+import pg from "pg";
+import { getSheetData } from "./sheet.js";
+import { serialSheetParaBR } from "./utils/datas.js";
+
+const TABS = {
+  CONTROLE: "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE",
+  HISTORICO: "HISTORICO MAQUINAS",
+  EVENTOS: "DADOS EVENTOS",
+  PERDIDAS: "PERDIDAS PAGSEGURO - INGRESSE",
+  TROCAS: "TROCAS",
+  LOCALIZAR: "LOCALIZAR"
+};
+const ANO_MIN = 2018;
+const SENTINELAS = new Set(["01/01/2040", "15/07/1905"]);
+
+/* ---- parse (mesma lógica de tools/etl/import-staging.js) ---- */
+function classificaData(v) {
+  const s = serialSheetParaBR(String(v ?? "").trim());
+  if (!s || s === "-" || s === "0") return { tipo: "vazio", br: "" };
+  if (SENTINELAS.has(s)) return { tipo: "sentinela", br: s };
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (!m) return { tipo: "nao-data", br: s };
+  const ano = Number(m[3]);
+  if (ano < ANO_MIN || ano > new Date().getUTCFullYear() + 2) return { tipo: "lixo", br: s };
+  return { tipo: "ok", br: s, y: m[3], mo: m[2].padStart(2, "0"), d: m[1].padStart(2, "0") };
+}
+function dataISO(v) {
+  const c = classificaData(v);
+  if (c.tipo === "ok") return { iso: `${c.y}-${c.mo}-${c.d}`, raw: c.br, motivo: null };
+  if (c.tipo === "sentinela") return { iso: null, raw: c.br, motivo: "sentinela" };
+  if (c.tipo === "lixo" || c.tipo === "nao-data") return { iso: null, raw: c.br, motivo: "data_suspeita" };
+  return { iso: null, raw: "", motivo: null };
+}
+function mapStatus(g) {
+  const s = String(g ?? "").trim();
+  const m = /^(estoque|em uso)\s+(sp|rj|ura)$/i.exec(s);
+  if (m) return { status: m[1].toLowerCase() === "estoque" ? "ESTOQUE" : "EM_USO", local: m[2].toUpperCase(), motivo: null };
+  if (/^fixo$/i.test(s)) return { status: "FIXO", local: null, motivo: null };
+  if (/^perdida$/i.test(s)) return { status: "PERDIDA", local: null, motivo: null };
+  if (/^defeito$/i.test(s)) return { status: "DEFEITO", local: null, motivo: null };
+  if (/^localizar$/i.test(s)) return { status: "LOCALIZAR", local: null, motivo: null };
+  return { status: null, local: null, motivo: "status_fora_mapa" };
+}
+function parseId(v, nome) {
+  const raw = String(v ?? "").trim();
+  const temNome = nome && String(nome).trim() && String(nome).trim() !== "-";
+  if (/^\d+$/.test(raw)) return { id: raw, motivo: null };
+  if (/n\/?a/i.test(raw)) return { id: null, motivo: "id_na" };
+  if ((!raw || raw === "-") && temNome) return { id: null, motivo: "sem_id_com_nome" };
+  if (raw && raw !== "-") return { id: null, motivo: "id_nao_numerico" };
+  return { id: null, motivo: null };
+}
+function parseProdutora(v) {
+  const s = String(v ?? "").trim();
+  const m = /^(\d+)\s*\|\s*(.+)$/.exec(s);
+  if (m) return { codigo: Number(m[1]), nome: m[2].trim() };
+  return { codigo: null, nome: s && s !== "-" ? s : null };
+}
+function adquirente(serial) {
+  const s = String(serial || "").trim().toUpperCase();
+  if (/^PB09/.test(s)) return "Stone";
+  if (/^(257|259)/.test(s)) return "GetNet";
+  if (/^4A/.test(s)) return "Cielo";
+  if (/^PB/.test(s) || /^\d+$/.test(s)) return "PagSeguro";
+  return null;
+}
+function tipoMov(acao) {
+  const a = String(acao || "").toLowerCase();
+  if (a.includes("retorno")) return "RETORNO";
+  if (a.includes("fixo")) return "ENVIO_FIXO";
+  if (a.includes("envio")) return "ENVIO";
+  return "AJUSTE";
+}
+const j = (row) => JSON.stringify(row);
+const nn = (v) => (v && String(v).trim() && String(v).trim() !== "-" ? String(v).trim() : null);
+const dm = (arr) => [...new Set(arr.filter(Boolean))];
+
+const STAGING_DDL = `
+CREATE SCHEMA IF NOT EXISTS staging;
+CREATE TABLE IF NOT EXISTS staging.controle (origem_linha INT, raw JSONB, serial TEXT, modelo TEXT, operadora TEXT, info_chip TEXT, empresa TEXT, adquirente TEXT, processando BOOLEAN, observacao TEXT, status_raw TEXT, status maquina_status, local praca, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS staging.historico (origem_linha INT, raw JSONB, serial TEXT, acao TEXT, tipo movimento_tipo, usuario TEXT, observacao TEXT, nome_evento TEXT, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS staging.eventos (origem_linha INT, raw JSONB, id_evento_raw TEXT, id_evento BIGINT, nome TEXT, produtora_codigo INT, produtora_nome TEXT, comercial TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS staging.perdidas (origem_linha INT, raw JSONB, serial TEXT, status_perda TEXT, local TEXT, empresa TEXT, id_evento_raw TEXT, id_evento BIGINT, nome_evento TEXT, responsavel TEXT, comercial TEXT, data_envio_raw TEXT, data_envio DATE, observacao TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS staging.trocas (origem_linha INT, raw JSONB, serial_defeito TEXT, problema TEXT, local TEXT, serial_nova TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE IF NOT EXISTS staging.localizar (origem_linha INT, raw JSONB, modelo TEXT, serial TEXT, referencia TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+TRUNCATE staging.controle, staging.historico, staging.eventos, staging.perdidas, staging.trocas, staging.localizar;
+`;
+
+const PROMOCAO_SQL = `
+TRUNCATE movimento, perda, troca, localizacao, maquina, evento RESTART IDENTITY CASCADE;
+INSERT INTO evento (id_evento, nome, produtora_codigo, produtora_nome, comercial)
+SELECT DISTINCT ON (id_evento) id_evento, nome, produtora_codigo, produtora_nome, comercial
+FROM staging.eventos WHERE id_evento IS NOT NULL AND nome IS NOT NULL
+ORDER BY id_evento, ((produtora_nome IS NOT NULL)::int+(produtora_codigo IS NOT NULL)::int+(comercial IS NOT NULL)::int) DESC, origem_linha DESC;
+INSERT INTO maquina (serial, modelo, operadora, info_chip, empresa, adquirente, status, local, id_evento_atual, data_saida, data_retorno, processando, observacao, origem_linha)
+SELECT c.serial, c.modelo, c.operadora, c.info_chip, COALESCE(c.empresa,'Ingresse'), c.adquirente, c.status, c.local,
+  (SELECT e.id_evento FROM evento e WHERE e.id_evento=c.id_evento), c.data_saida,
+  CASE WHEN c.status='FIXO' THEN NULL ELSE c.data_retorno END, COALESCE(c.processando,false), c.observacao, c.origem_linha
+FROM staging.controle c WHERE c.serial IS NOT NULL AND c.status IS NOT NULL;
+INSERT INTO movimento (maquina_id, id_evento, tipo, data_saida, data_retorno, usuario, observacao, origem, origem_linha, criado_em)
+SELECT m.id, (SELECT e.id_evento FROM evento e WHERE e.id_evento=h.id_evento), h.tipo, h.data_saida, h.data_retorno, h.usuario, h.observacao, 'sheet_sync', h.origem_linha,
+  COALESCE(h.data_saida, h.data_retorno, CURRENT_DATE)::timestamptz
+FROM staging.historico h JOIN maquina m ON m.serial=h.serial;
+INSERT INTO perda (maquina_id, id_evento, responsavel, comercial, data_envio, status_perda, local, observacao)
+SELECT m.id, (SELECT e.id_evento FROM evento e WHERE e.id_evento=p.id_evento), p.responsavel, p.comercial, p.data_envio, p.status_perda, p.local, p.observacao
+FROM staging.perdidas p JOIN maquina m ON m.serial=p.serial;
+INSERT INTO troca (maquina_defeito_id, problema, local, maquina_nova_id)
+SELECT md.id, t.problema, t.local, mn.id FROM staging.trocas t JOIN maquina md ON md.serial=t.serial_defeito LEFT JOIN maquina mn ON mn.serial=t.serial_nova;
+INSERT INTO localizacao (maquina_id, referencia)
+SELECT m.id, l.referencia FROM staging.localizar l JOIN maquina m ON m.serial=l.serial;
+`;
+
+async function bulk(client, tabela, cols, linhas) {
+  const CHUNK = 300;
+  for (let o = 0; o < linhas.length; o += CHUNK) {
+    const slice = linhas.slice(o, o + CHUNK);
+    const vals = [], params = [];
+    let p = 1;
+    for (const row of slice) { vals.push("(" + cols.map(() => `$${p++}`).join(",") + ")"); params.push(...row); }
+    await client.query(`INSERT INTO ${tabela} (${cols.join(",")}) VALUES ${vals.join(",")}`, params);
+  }
+}
+
+/** Sync completo Planilha→Neon. Retorna resumo. */
+export async function sincronizar() {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL não configurada.");
+  const inicio = Date.now();
+
+  const [controle, historico, eventos, perdidas, trocas, localizar] = await Promise.all([
+    getSheetData(`'${TABS.CONTROLE}'!A2:P`),
+    getSheetData(`'${TABS.HISTORICO}'!A2:K`),
+    getSheetData(`'${TABS.EVENTOS}'!A2:D`),
+    getSheetData(`'${TABS.PERDIDAS}'!A2:P`),
+    getSheetData(`'${TABS.TROCAS}'!A2:D`),
+    getSheetData(`'${TABS.LOCALIZAR}'!A2:K`)
+  ]);
+
+  const setP = new Set(perdidas.map((r) => nn(r[0])).filter(Boolean));
+  const setL = new Set(localizar.map((r) => nn(r[2])).filter(Boolean));
+
+  const rowsControle = controle.map((r, i) => {
+    const st = mapStatus(r[6]), idp = parseId(r[9], r[10]), dS = dataISO(r[13]), dR = dataISO(r[14]), serial = nn(r[2]);
+    const mot = dm([st.motivo, idp.motivo, dS.motivo === "sentinela" ? null : dS.motivo, dR.motivo === "sentinela" ? null : dR.motivo,
+      serial && (setP.has(serial) || setL.has(serial)) ? "serial_multi_aba" : null]);
+    return [i + 2, j(r), serial, nn(r[1]), nn(r[3]), nn(r[4]), nn(r[8]), adquirente(serial), /Sim/i.test(String(r[7] || "")), nn(r[15]),
+      nn(r[6]), st.status, st.local, nn(r[9]), idp.id, dS.raw, dS.iso, dR.raw, dR.iso, mot];
+  });
+  const rowsHist = historico.map((r, i) => {
+    const idp = parseId(r[1], r[7]), dS = dataISO(r[3]), dR = dataISO(r[4]);
+    return [i + 2, j(r), nn(r[0]), nn(r[2]), tipoMov(r[2]), nn(r[6]), nn(r[10]), nn(r[7]), nn(r[1]), idp.id, dS.raw, dS.iso, dR.raw, dR.iso,
+      dm([dS.motivo === "sentinela" ? null : dS.motivo, dR.motivo === "sentinela" ? null : dR.motivo])];
+  });
+  const visto = new Map();
+  const rowsEv = eventos.map((r, i) => {
+    const idRaw = nn(r[0]), prod = parseProdutora(r[2]), chave = `${nn(r[1]) || ""}|${nn(r[2]) || ""}|${nn(r[3]) || ""}`;
+    let mot = null;
+    if (idRaw && /^\d+$/.test(idRaw)) { if (!visto.has(idRaw)) visto.set(idRaw, new Set()); const s = visto.get(idRaw); if (s.size >= 1 && !s.has(chave)) mot = "evento_divergente"; s.add(chave); }
+    else if (idRaw) mot = "id_nao_numerico";
+    return [i + 2, j(r), nn(r[0]), (idRaw && /^\d+$/.test(idRaw)) ? idRaw : null, nn(r[1]), prod.codigo, prod.nome, nn(r[3]), dm([mot])];
+  });
+  const rowsPerd = perdidas.map((r, i) => {
+    const idp = parseId(r[7], r[8]), dE = dataISO(r[11]), cL = classificaData(r[11]), cM = classificaData(r[12]);
+    const sp = (cL.tipo === "nao-data" ? cL.br : "") || (cM.tipo === "nao-data" ? cM.br : "") || nn(r[3]);
+    return [i + 2, j(r), nn(r[0]), sp, nn(r[4]), nn(r[6]), nn(r[7]), idp.id, nn(r[8]), nn(r[9]), nn(r[10]), dE.raw, dE.iso, nn(r[13]),
+      dm([idp.motivo, dE.motivo === "sentinela" ? null : dE.motivo, (cL.tipo === "nao-data" || cM.tipo === "nao-data") ? "texto_em_data" : null])];
+  });
+  const rowsTr = trocas.map((r, i) => [i + 2, j(r), nn(r[0]), nn(r[1]), nn(r[2]), nn(r[3]), dm([!nn(r[3]) ? "troca_sem_substituta" : null])]);
+  const rowsLoc = localizar.map((r, i) => [i + 2, j(r), nn(r[1]), nn(r[2]), nn(r[10]), dm([nn(r[10]) && /^\*|voltou|encontrad/i.test(nn(r[10])) ? "provavel_resolvida" : null])]);
+
+  const client = new pg.Client({ connectionString: url.replace("-pooler", ""), ssl: true });
+  await client.connect();
+  try {
+    await client.query(STAGING_DDL);
+    await bulk(client, "staging.controle", ["origem_linha","raw","serial","modelo","operadora","info_chip","empresa","adquirente","processando","observacao","status_raw","status","local","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsControle);
+    await bulk(client, "staging.historico", ["origem_linha","raw","serial","acao","tipo","usuario","observacao","nome_evento","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsHist);
+    await bulk(client, "staging.eventos", ["origem_linha","raw","id_evento_raw","id_evento","nome","produtora_codigo","produtora_nome","comercial","motivo_revisao"], rowsEv);
+    await bulk(client, "staging.perdidas", ["origem_linha","raw","serial","status_perda","local","empresa","id_evento_raw","id_evento","nome_evento","responsavel","comercial","data_envio_raw","data_envio","observacao","motivo_revisao"], rowsPerd);
+    await bulk(client, "staging.trocas", ["origem_linha","raw","serial_defeito","problema","local","serial_nova","motivo_revisao"], rowsTr);
+    await bulk(client, "staging.localizar", ["origem_linha","raw","modelo","serial","referencia","motivo_revisao"], rowsLoc);
+    await client.query("BEGIN");
+    await client.query(PROMOCAO_SQL);
+    await client.query("COMMIT");
+    const cnt = async (t) => (await client.query(`select count(*) n from ${t}`)).rows[0].n;
+    return {
+      ok: true, ms: Date.now() - inicio,
+      maquina: await cnt("maquina"), evento: await cnt("evento"), movimento: await cnt("movimento"),
+      perda: await cnt("perda"), troca: await cnt("troca"), localizacao: await cnt("localizacao")
+    };
+  } catch (e) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw e;
+  } finally {
+    await client.end();
+  }
+}
