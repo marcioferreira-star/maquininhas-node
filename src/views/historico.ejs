@@ -165,6 +165,12 @@
 
   <h1 style="margin-bottom: 22px; font-weight:700;">Histórico de Movimentações</h1>
 
+  <% if (typeof erro !== "undefined" && erro) { %>
+    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+      Não foi possível carregar o histórico agora — a planilha está indisponível. Recarregue em instantes.
+    </div>
+  <% } %>
+
   <!-- FILTROS -->
   <div class="filter-box">
     <input type="text" id="filtroSerial" placeholder="Filtrar Serial">

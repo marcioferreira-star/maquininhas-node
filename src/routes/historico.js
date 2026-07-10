@@ -21,6 +21,7 @@ router.get("/", async (req, res) => {
 
     res.render("historico", {
       page: "historico",
+      erro: false,
       historico: listaSegura
     });
 
@@ -30,6 +31,7 @@ router.get("/", async (req, res) => {
 
     res.render("historico", {
       page: "historico",
+      erro: true,
       historico: []
     });
   }

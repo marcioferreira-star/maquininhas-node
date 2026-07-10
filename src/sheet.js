@@ -32,32 +32,40 @@ function getServiceAccountFromEnv() {
   return obj;
 }
 
-const serviceAccount = getServiceAccountFromEnv();
-
-const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccount,
-  scopes: [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-  ]
-});
-
-const sheets = google.sheets({ version: "v4", auth });
+/* =====================================================
+   CLIENTE SHEETS — LAZY e memoizado
+   - Antes a auth rodava no top-level do módulo: importar db.js/sheet.js sem a
+     env explodia no load (tornava a camada de dados intestável e derrubava a
+     função serverless inteira no cold start). Agora só autentica na 1ª chamada.
+===================================================== */
+let _sheetsClient = null;
+function getSheetsClient() {
+  if (_sheetsClient) return _sheetsClient;
+  const serviceAccount = getServiceAccountFromEnv();
+  const auth = new google.auth.GoogleAuth({
+    credentials: serviceAccount,
+    scopes: [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive"
+    ]
+  });
+  _sheetsClient = google.sheets({ version: "v4", auth });
+  return _sheetsClient;
+}
 
 /* =====================================================
    🔵 LER PLANILHA
+   - PROPAGA o erro (throw) em vez de mascarar como []: quem chama diferencia
+     "planilha vazia" de "Sheets indisponível" e mostra banner em vez de "0".
+   - Uma faixa realmente vazia devolve [] (via `|| []`), isso NÃO é erro.
 ===================================================== */
 export async function getSheetData(range) {
-  try {
-    const res = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range
-    });
-    return res.data.values || [];
-  } catch (error) {
-    console.error("❌ Erro ao ler planilha:", error);
-    return [];
-  }
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range
+  });
+  return res.data.values || [];
 }
 
 /* =====================================================
@@ -67,7 +75,7 @@ export async function appendToSheet(range, values) {
   try {
     const rows = Array.isArray(values?.[0]) ? values : [values];
 
-    await sheets.spreadsheets.values.append({
+    await getSheetsClient().spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range,
       valueInputOption: "USER_ENTERED",
@@ -95,7 +103,7 @@ export async function batchUpdateValues(updates) {
       values: [[u.value]]
     }));
 
-    await sheets.spreadsheets.values.batchUpdate({
+    await getSheetsClient().spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
         valueInputOption: "USER_ENTERED",

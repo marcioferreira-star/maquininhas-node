@@ -21,6 +21,7 @@ router.get("/", async (req, res) => {
 
     res.render("maquinas", {
       page: "maquinas",
+      erro: false,
       maquinas: listaSegura
     });
 
@@ -30,6 +31,7 @@ router.get("/", async (req, res) => {
 
     res.render("maquinas", {
       page: "maquinas",
+      erro: true,
       maquinas: []
     });
   }

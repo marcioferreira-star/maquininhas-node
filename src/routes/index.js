@@ -28,6 +28,7 @@ router.get("/", async (req, res) => {
 
     res.render("index", {
       page: "dashboard",
+      erro: false,
       maquinas,
       resumo,
       porStatus,
@@ -41,8 +42,10 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("❌ Erro ao carregar dashboard:", error);
 
+    // erro:true → a view mostra banner em vez de exibir 0 como se fosse real
     res.render("index", {
       page: "dashboard",
+      erro: true,
       maquinas: [],
       resumo: {
         total: 0,

@@ -78,7 +78,7 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
-### 2026-07-10 — Auditoria minuciosa + Onda 0/1 (branch `feat/onda0-blindagem-e-fuso`)
+### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
 - **Onda 0 — blindagem:**
@@ -90,8 +90,12 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - `db.js`: ranges ABERTOS `A2:O` / `A2:K` (fim do truncamento); `invalidarCacheMaquinas()` chamado após escrita; índice detecta seriais duplicados.
   - HTTP status reais (400/404/409/422/500) nas rotas de API; política ÚNICA no retorno (limpa J..M no CONTROLE, mantém vínculo no HISTÓRICO).
   - Higiene: `engines`+`.nvmrc` (Node 20), footer com ano dinâmico, contraste do badge "Vence hoje", `alt` no logo do login, comentário ESLint 10.
-- **DEFERIDO (precisa de decisão/smoke test):** gravar datas como `RAW` (A2) — muda o tipo das células numa planilha viva com Apps Script bound; fazer só após clonar/entender o GAS. Migração Neon, design system, telas de exceção: ondas seguintes.
-- Testes 8/8 verdes, lint limpo, smoke test de boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403).
+- **Onda 2 — robustez & testabilidade (branch `feat/onda2-robustez`, stacked sobre a onda0):**
+  - **Auth lazy** em `sheet.js` (`getSheetsClient()` memoizado) — importar a camada de dados não explode mais no load; destrava testes e evita crash de cold start por env faltando.
+  - **Erro ≠ vazio:** `getSheetData` PROPAGA erro (não vira `[]`); `getMaquinas`/`getMaquinasIndex`/`getResumo`/`getHistorico` propagam; as rotas passam `erro:true` → **banner** nas views (fim do "0 máquinas" silencioso). `getEventoInfo` **não cacheia null em erro de leitura** (fim do falso "ID não existe" grudado 5 min); `api.js` devolve **503** (planilha indisponível) ≠ **404** (ID não existe).
+  - **Lógica pura extraída** p/ `src/utils/dominio.js` (`resumoDeMaquinas`, `montarHistorico`) + `test/dominio.test.js` — cobre baldes de status, atrasadas (vence hoje = no prazo), e o **fix do "Envio Fixo devolvido"** (antes travava em "Fixo", agora "Devolvida").
+- **DEFERIDO (precisa de decisão/smoke test):** gravar datas como `RAW` (A2) — muda o tipo das células numa planilha viva com Apps Script bound; fazer só após clonar/entender o GAS. Migração Neon, design system, telas de exceção: ondas seguintes. Ping Slack no erro de leitura (precisa de webhook/token).
+- Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente).
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
 - **Motivo**: cortar custo do Render (pago por serviço); a Vercel Pro já estava paga.

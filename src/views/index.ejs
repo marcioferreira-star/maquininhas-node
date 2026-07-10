@@ -84,6 +84,12 @@
 
   <h1>Dashboard</h1>
 
+  <% if (typeof erro !== "undefined" && erro) { %>
+    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+      Não foi possível carregar os dados agora — a planilha está indisponível. Recarregue a página em instantes.
+    </div>
+  <% } %>
+
   <div class="kpis">
     <div class="card-kpi kpi-total">
       <div>

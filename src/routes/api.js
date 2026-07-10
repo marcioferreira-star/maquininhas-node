@@ -124,7 +124,16 @@ router.post("/registrar-envio", async (req, res) => {
         }
       }
 
-      eventoInfo = await getEventoInfo(id_evento);
+      try {
+        eventoInfo = await getEventoInfo(id_evento);
+      } catch (e) {
+        // erro de LEITURA da planilha ≠ "ID não existe"
+        console.error("❌ Falha ao ler DADOS EVENTOS:", e);
+        return res.status(503).json({
+          ok: false,
+          msg: "Não foi possível validar o evento agora (planilha indisponível). Tente de novo."
+        });
+      }
 
       if (!eventoInfo) {
         return res.status(404).json({
