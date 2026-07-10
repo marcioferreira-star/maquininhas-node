@@ -78,7 +78,7 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
-### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`)
+### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
 - **Onda 0 — blindagem:**
@@ -98,7 +98,15 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - **KPIs do dashboard clicáveis** (`index.ejs`): cada card abre `/maquinas` já filtrado por querystring (`?f=estoque|em uso|fixo`, `?retorno=atrasada`). `maquinas.ejs` lê a querystring no load (filtro por substring de status). Resolve a pergunta nº1 "o que está atrasado?".
   - **Lookup ao vivo + cadastro de evento no app** (A8): `GET /api/evento/:id` (eco do nome no blur do ID no Envio — verde "Evento: Nome — Produtora", ou vermelho "não encontrado" + botão) e `POST /api/evento` (`db.js:cadastrarEvento` → append em DADOS EVENTOS + invalida cache). Mata a ida ao Sheets no meio do envio e o envio para evento errado por dígito trocado.
   - **Data de envio default = hoje** (horário local do cliente, nunca ISO/UTC) no Envio.
-- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras e toast/atualização in-place (entram no design system, onda 4); exibir OBSERVAÇÃO/Operadora/Chip (col D/E/P) na tela Máquinas; gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
+- **Onda 4 — design system Ingresse (branch `feat/onda4-design`, stacked sobre a onda3):**
+  - **Tokens CSS** em `style.css` (`--brand:#FF271A`, `--ink:#1A1A1A`, superfícies/bordas/texto) + **dark mode** (`prefers-color-scheme` + `:root[data-theme]`). Sidebar preta com item ativo Blood Orange; cabeçalhos de tabela pretos.
+  - **Dark mode via localStorage** — toggle (lua/sol) no top-header + script **pré-paint** no `header.ejs` e `login.ejs` (evita flash). Persiste.
+  - **Sistema `.btn/.btn-primary/.btn-secondary/.btn-danger`**; botões azuis/laranja → Blood Orange; "Sair"/remover → danger.
+  - **Emoji → ícones Tabler** (SVG inline, `currentColor`): KPIs (📦✅🚚⏰📌), nav da sidebar, ☰ e 👤.
+  - **Login reskin** (preto + Blood Orange), `width:min(420px,92vw)`.
+  - Tokenizados os `<style>` inline de todas as telas (dashboard/máquinas/histórico/envio) p/ funcionar em dark; removido CSS morto do `style.css`.
+  - ✅ **VERIFICADO NO NAVEGADOR** (preview + usuário de teste local, revertido): login/dashboard/máquinas/envio em **light e dark**, toggle persistindo, filtro dos KPIs funcionando (`?f=estoque` → 80). Fonte: stack de sistema com "Inter" (self-host do woff2 fica p/ quando tivermos os arquivos da fonte).
+- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras e toast/atualização in-place; exibir OBSERVAÇÃO/Operadora/Chip (col D/E/P) na tela Máquinas; empty-state da tabela Máquinas; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
 - Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente). Onda 3: `GET /api/evento/:id` validado read-only (evento real encontrado, inexistente→null) + boot com rotas novas registradas/protegidas. ⚠️ **Verificação VISUAL das telas logadas (KPIs clicáveis, eco/cadastro no Envio, data default) pendente — o Marcio confere no preview/prod.**
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`

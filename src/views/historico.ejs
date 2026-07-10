@@ -6,14 +6,14 @@
 /* CAIXA DE FILTROS */
 /* ------------------------- */
 .filter-box {
-  background: #ffffff;
+  background: var(--surface);
   padding: 18px;
   border-radius: 12px;
-  border: 1px solid #e4e4e4;
+  border: 1px solid var(--border);
   display: flex;
   gap: 15px;
   margin-bottom: 22px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow);
 }
 
 .filter-box input,
@@ -21,7 +21,9 @@
   flex: 1;
   height: 40px;
   border-radius: 8px;
-  border: 1px solid #d0d0d0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   padding-left: 12px;
   font-size: 15px;
 }
@@ -30,12 +32,12 @@
 /* ÁREA DA TABELA */
 /* ------------------------- */
 .box-wrapper {
-  background: white;
+  background: var(--surface);
   padding: 0;
   border-radius: 14px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   overflow: hidden;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+  box-shadow: var(--shadow);
 }
 
 /* ------------------------- */
@@ -43,9 +45,8 @@
 /* ------------------------- */
 .table-head {
   width: 100%;
-  background: #0047B3;
-  border-bottom: 1px solid #003a94;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  background: var(--table-head-bg);
+  border-bottom: 1px solid var(--border);
   z-index: 5;
   overflow-x: hidden; /* desktop ok */
 }
@@ -58,7 +59,7 @@
 
 .table-history thead th {
   padding: 12px;
-  color: white;
+  color: var(--table-head-fg);
   font-size: 14px;
   font-weight: 600;
   text-align: left;
@@ -93,22 +94,23 @@
 /* LINHAS DA TABELA */
 /* ------------------------- */
 .table-history tbody tr {
-  background: #fff;
+  background: var(--surface);
   transition: 0.15s;
 }
 
 .table-history tbody tr:nth-child(odd) {
-  background: #f7f9fc;
+  background: var(--surface-2);
 }
 
 .table-history tbody tr:hover {
-  background: #eaf1ff;
+  background: var(--surface-3);
 }
 
 .table-history td {
   padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   word-wrap: break-word;
 }
 
@@ -118,7 +120,7 @@
 .empty-msg {
   text-align: center;
   padding: 25px;
-  color: #777;
+  color: var(--muted);
   font-size: 15px;
 }
 

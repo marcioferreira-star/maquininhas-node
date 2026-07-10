@@ -16,9 +16,9 @@
   }
 
   .box {
-    background: #fff;
-    border: 1px solid #dcdcdc;
-    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
     padding: 15px;
     width: 100%;
     min-width: 0;
@@ -31,22 +31,23 @@
 
   .item-maq {
     padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
     margin-bottom: 6px;
     cursor: pointer;
-    background: #f8f8f8;
+    background: var(--surface-2);
+    color: var(--text);
   }
 
   .item-maq.selecionada {
-    background: #dce9ff;
-    border-color: #7bb3ff;
+    background: rgba(255, 39, 26, 0.10);
+    border-color: var(--brand);
   }
 
   .selecionadas-box {
     height: 350px;
-    border: 1px dashed #bfbfbf;
-    background: #f7faff;
+    border: 1px dashed var(--border);
+    background: var(--surface-2);
     padding: 10px;
     overflow-y: auto;
   }
@@ -64,8 +65,8 @@
     gap: 10px;
     padding: 8px 10px;
     margin-bottom: 8px;
-    background: #fff;
-    border: 1px solid #d7d7d7;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     min-width: 0;
   }
@@ -75,7 +76,7 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    color: #333;
+    color: var(--text);
   }
 
   .campo {
@@ -93,21 +94,21 @@
     width: 100%;
     max-width: 600px;
     margin: 30px auto 40px;
-    background: #0066ff;
+    background: var(--brand);
     border: none;
     padding: 16px;
     font-size: 18px;
     font-weight: 600;
     border-radius: 8px;
-    color: white;
+    color: #fff;
     cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-lg);
     transition: 0.2s ease;
     text-align: center;
   }
 
   .btn-registrar:hover {
-    background: #0053d6;
+    background: var(--brand-hover);
     transform: translateY(-2px);
   }
 
@@ -117,8 +118,8 @@
   }
 
   .btn-remove {
-    background: #ff4d4d;
-    color: white;
+    background: var(--danger);
+    color: #fff;
     border: none;
     padding: 2px 10px;
     border-radius: 6px;
@@ -129,7 +130,7 @@
   }
 
   .btn-remove:hover {
-    background: #cc0000;
+    background: var(--danger-hover);
   }
 
   #buscaSerial {
@@ -138,6 +139,11 @@
     margin-bottom: 10px;
     font-size: 15px;
     height: 38px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 0 12px;
   }
 
   /* ✅ MOBILE */

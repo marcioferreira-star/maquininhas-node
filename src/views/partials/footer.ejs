@@ -22,9 +22,17 @@
     if (sidebar.classList.contains('open')) closeMenu();
     else openMenu();
   }
+
+  // alterna tema claro/escuro e persiste no localStorage
+  function toggleTheme(){
+    var atual = document.documentElement.getAttribute('data-theme') || 'light';
+    var novo = atual === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', novo);
+    try { localStorage.setItem('theme', novo); } catch(e){}
+  }
 </script>
 
-<footer style="text-align:center; padding:18px 0; color:#555; font-size:14px;">
+<footer style="text-align:center; padding:18px 0; color:var(--muted); font-size:14px; border-top:1px solid var(--border);">
   © <%= new Date().getFullYear() %> Ingresse. Todos os direitos reservados.
 </footer>
 
