@@ -2,9 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/index.js": {
-      "includeFiles": "src/**"
+      "includeFiles": "src/**",
+      "maxDuration": 60
     }
   },
+  "crons": [
+    { "path": "/api/sync-neon", "schedule": "*/15 * * * *" }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index.js" }
   ]
