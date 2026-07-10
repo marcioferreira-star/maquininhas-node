@@ -183,6 +183,26 @@ export async function getEventoInfo(idEvento) {
 }
 
 /* ============================================================
+   🔵 CADASTRAR EVENTO (aba DADOS EVENTOS)
+   - Append de 1 linha (ID, Nome, Produtora, Comercial).
+   - Invalida o cache daquele ID p/ o lookup seguinte já enxergar.
+============================================================ */
+export async function cadastrarEvento({ id, nome, produtora, comercial }) {
+  const alvo = String(id || "").trim();
+  if (!alvo) return false;
+
+  const ok = await appendToSheet(`'${EVENTOS_SHEET}'!A:D`, [
+    alvo,
+    String(nome || "-"),
+    String(produtora || "-"),
+    String(comercial || "-")
+  ]);
+
+  if (ok) CACHE.eventoInfo.map.delete(alvo); // força re-leitura fresca
+  return ok;
+}
+
+/* ============================================================
    🔵 REGISTRAR MOVIMENTO (HISTÓRICO)
    - Aceita 1 linha (obj) ou várias linhas (array de arrays)
 ============================================================ */

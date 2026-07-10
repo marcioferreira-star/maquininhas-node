@@ -211,6 +211,15 @@
           class="form-control"
           placeholder="Ex: 66689"
         >
+        <!-- eco ao vivo do nome do evento + cadastro rápido quando não existe -->
+        <div id="ecoEvento" style="font-size:13px;margin-top:6px;min-height:18px;"></div>
+        <div id="formNovoEvento" style="display:none;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;">
+          <div style="font-weight:600;margin-bottom:6px;font-size:13px;">Cadastrar evento <span id="novoEventoId"></span></div>
+          <input type="text" id="novoEventoNome" class="form-control" placeholder="Nome do evento" style="margin-bottom:6px;">
+          <input type="text" id="novoEventoProdutora" class="form-control" placeholder="Produtora (opcional)" style="margin-bottom:6px;">
+          <input type="text" id="novoEventoComercial" class="form-control" placeholder="Comercial (opcional)" style="margin-bottom:6px;">
+          <button type="button" id="btnSalvarEvento" class="btn-azul" style="padding:8px 14px;font-size:14px;">Salvar evento</button>
+        </div>
       </div>
 
       <!-- ✅ DATA ENVIO / SAÍDA (só envio, inclusive fixo) -->
@@ -502,6 +511,98 @@ form.addEventListener("submit", async (e) => {
 /* INIT */
 busca.addEventListener("input", () => renderLista(busca.value));
 renderLista("");
+
+/* ===============================
+   DATA DE ENVIO DEFAULT = HOJE (horário local do cliente, nunca ISO/UTC)
+=============================== */
+(function () {
+  const d = new Date();
+  const iso = d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0");
+  const dtSaidaEl = document.getElementById("dtSaida");
+  if (dtSaidaEl && !dtSaidaEl.value) dtSaidaEl.value = iso;
+})();
+
+/* ===============================
+   LOOKUP AO VIVO DO EVENTO + CADASTRO RÁPIDO
+   - blur no ID → GET /api/evento/:id → eco do nome (verde) ou "cadastrar" (vermelho)
+=============================== */
+const idEvento = document.getElementById("idEvento");
+const ecoEvento = document.getElementById("ecoEvento");
+const formNovoEvento = document.getElementById("formNovoEvento");
+
+async function lookupEvento() {
+  if (!idEvento || !ecoEvento) return;
+  const id = idEvento.value.trim();
+  if (formNovoEvento) formNovoEvento.style.display = "none";
+  if (!id) { ecoEvento.textContent = ""; return; }
+  ecoEvento.style.color = "#888";
+  ecoEvento.textContent = "Verificando evento…";
+  try {
+    const r = await fetch("/api/evento/" + encodeURIComponent(id));
+    if (r.ok) {
+      const data = await r.json();
+      const ev = data.evento || {};
+      const prod = ev.produtora && ev.produtora !== "-" ? " — " + ev.produtora : "";
+      ecoEvento.style.color = "#1f7a37";
+      ecoEvento.textContent = "Evento: " + (ev.nome_evento || "-") + prod;
+    } else if (r.status === 404) {
+      ecoEvento.style.color = "#c0392b";
+      ecoEvento.textContent = "ID não encontrado. ";
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "Cadastrar este evento";
+      b.style.cssText = "background:none;border:none;color:#0a58ca;text-decoration:underline;cursor:pointer;padding:0;font-size:13px;";
+      b.addEventListener("click", () => {
+        document.getElementById("novoEventoId").textContent = "#" + id;
+        formNovoEvento.style.display = "";
+        document.getElementById("novoEventoNome").focus();
+      });
+      ecoEvento.appendChild(b);
+    } else {
+      ecoEvento.style.color = "#c0392b";
+      ecoEvento.textContent = "Não foi possível validar o evento agora. Tente de novo.";
+    }
+  } catch (e) {
+    ecoEvento.style.color = "#c0392b";
+    ecoEvento.textContent = "Erro de rede ao validar o evento.";
+  }
+}
+
+if (idEvento) idEvento.addEventListener("blur", lookupEvento);
+
+const btnSalvarEvento = document.getElementById("btnSalvarEvento");
+if (btnSalvarEvento) {
+  btnSalvarEvento.addEventListener("click", async () => {
+    const id = idEvento.value.trim();
+    const nome = document.getElementById("novoEventoNome").value.trim();
+    if (!id || !nome) { alert("Informe ao menos o ID e o nome do evento."); return; }
+    btnSalvarEvento.disabled = true;
+    try {
+      const r = await fetch("/api/evento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_evento: id,
+          nome,
+          produtora: document.getElementById("novoEventoProdutora").value.trim(),
+          comercial: document.getElementById("novoEventoComercial").value.trim()
+        })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        await lookupEvento(); // re-valida: agora o evento existe → eco verde
+      } else {
+        alert(data.msg || "Não foi possível cadastrar o evento.");
+      }
+    } catch (e) {
+      alert("Erro de rede ao cadastrar o evento.");
+    } finally {
+      btnSalvarEvento.disabled = false;
+    }
+  });
+}
 renderSel();
 </script>
 

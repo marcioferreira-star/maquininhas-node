@@ -219,6 +219,13 @@ const btnExportar   = document.getElementById("btnExportar");
 const contador      = document.getElementById("contador");
 
 /* ============================================================
+      FILTRO INICIAL (vindo do dashboard via querystring)
+      ?f=<substring de status: estoque|em uso|fixo>  e/ou  ?retorno=<atrasada|...>
+============================================================ */
+const _params = new URLSearchParams(location.search);
+let statusInicial = (_params.get("f") || "").toLowerCase().trim();
+
+/* ============================================================
       FUNÇÃO CONTADOR
 ============================================================ */
 function atualizarContador() {
@@ -254,6 +261,8 @@ function aplicarFiltros() {
     }
 
     if (st && status !== st) mostrar = false;
+    // filtro inicial por substring de status (vindo do KPI do dashboard)
+    if (statusInicial && !(status || "").toLowerCase().includes(statusInicial)) mostrar = false;
     if (emp && empresa !== emp) mostrar = false;
     /* ----- Evento (múltiplos) ----- */
     if (ev) {
@@ -349,8 +358,15 @@ btnLimpar.addEventListener("click", () => {
   filtroEmpresa.value = "";
   filtroEvento.value = "";
   filtroRetorno.value = "";
+  statusInicial = ""; // também limpa o filtro que veio do dashboard
   aplicarFiltros();
 });
+
+/* ============================================================
+      APLICA O FILTRO INICIAL DA QUERYSTRING (se houver)
+============================================================ */
+if (_params.get("retorno")) filtroRetorno.value = _params.get("retorno");
+if (statusInicial || _params.get("retorno")) aplicarFiltros();
 
 /* ============================================================
       EXPORTAR

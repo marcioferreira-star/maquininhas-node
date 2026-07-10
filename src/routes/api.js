@@ -5,7 +5,8 @@ import {
   getEventoInfo,
   getHistorico,
   getMaquinasIndex,
-  invalidarCacheMaquinas
+  invalidarCacheMaquinas,
+  cadastrarEvento
 } from "../db.js";
 
 import { batchUpdateValues } from "../sheet.js";
@@ -508,7 +509,62 @@ router.get("/maquinas", async (req, res) => {
     return res.json({ ok: true, maquinas });
   } catch (err) {
     console.error("❌ ERRO /api/maquinas:", err);
-    return res.json({ ok: false, msg: "Erro ao carregar máquinas." });
+    return res.status(503).json({ ok: false, msg: "Erro ao carregar máquinas." });
+  }
+});
+
+/* ======================================================
+   GET /api/evento/:id — lookup ao vivo (eco do nome no Envio)
+   - 200 {ok, evento} | 404 não existe | 503 planilha indisponível
+====================================================== */
+router.get("/evento/:id", async (req, res) => {
+  try {
+    const evento = await getEventoInfo(req.params.id);
+    if (!evento) return res.status(404).json({ ok: false, msg: "Evento não encontrado." });
+    return res.json({ ok: true, evento });
+  } catch (err) {
+    console.error("❌ ERRO /api/evento (GET):", err);
+    return res.status(503).json({ ok: false, msg: "Planilha indisponível. Tente de novo." });
+  }
+});
+
+/* ======================================================
+   POST /api/evento — cadastra evento novo na aba DADOS EVENTOS
+====================================================== */
+router.post("/evento", async (req, res) => {
+  try {
+    const { id_evento, nome, produtora, comercial } = req.body || {};
+    const id = String(id_evento || "").trim();
+    const nomeT = String(nome || "").trim();
+
+    if (!id || !nomeT) {
+      return res.status(400).json({ ok: false, msg: "ID e nome do evento são obrigatórios." });
+    }
+
+    // não duplicar: se já existe, avisa (diferencia planilha indisponível)
+    let existente = null;
+    try {
+      existente = await getEventoInfo(id);
+    } catch (e) {
+      console.error("❌ Falha ao checar evento existente:", e);
+      return res.status(503).json({ ok: false, msg: "Planilha indisponível. Tente de novo." });
+    }
+    if (existente) {
+      return res.status(409).json({ ok: false, msg: `O ID ${id} já existe.` });
+    }
+
+    const ok = await cadastrarEvento({
+      id,
+      nome: nomeT,
+      produtora: String(produtora || "").trim(),
+      comercial: String(comercial || "").trim()
+    });
+    if (!ok) return res.status(500).json({ ok: false, msg: "Falha ao cadastrar o evento." });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("❌ ERRO /api/evento (POST):", err);
+    return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
   }
 });
 

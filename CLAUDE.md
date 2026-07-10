@@ -78,7 +78,7 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
-### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`)
+### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
 - **Onda 0 — blindagem:**
@@ -94,8 +94,12 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - **Auth lazy** em `sheet.js` (`getSheetsClient()` memoizado) — importar a camada de dados não explode mais no load; destrava testes e evita crash de cold start por env faltando.
   - **Erro ≠ vazio:** `getSheetData` PROPAGA erro (não vira `[]`); `getMaquinas`/`getMaquinasIndex`/`getResumo`/`getHistorico` propagam; as rotas passam `erro:true` → **banner** nas views (fim do "0 máquinas" silencioso). `getEventoInfo` **não cacheia null em erro de leitura** (fim do falso "ID não existe" grudado 5 min); `api.js` devolve **503** (planilha indisponível) ≠ **404** (ID não existe).
   - **Lógica pura extraída** p/ `src/utils/dominio.js` (`resumoDeMaquinas`, `montarHistorico`) + `test/dominio.test.js` — cobre baldes de status, atrasadas (vence hoje = no prazo), e o **fix do "Envio Fixo devolvido"** (antes travava em "Fixo", agora "Devolvida").
-- **DEFERIDO (precisa de decisão/smoke test):** gravar datas como `RAW` (A2) — muda o tipo das células numa planilha viva com Apps Script bound; fazer só após clonar/entender o GAS. Migração Neon, design system, telas de exceção: ondas seguintes. Ping Slack no erro de leitura (precisa de webhook/token).
-- Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente).
+- **Onda 3 — experiência do operador (branch `feat/onda3-operador`, stacked sobre a onda2):**
+  - **KPIs do dashboard clicáveis** (`index.ejs`): cada card abre `/maquinas` já filtrado por querystring (`?f=estoque|em uso|fixo`, `?retorno=atrasada`). `maquinas.ejs` lê a querystring no load (filtro por substring de status). Resolve a pergunta nº1 "o que está atrasado?".
+  - **Lookup ao vivo + cadastro de evento no app** (A8): `GET /api/evento/:id` (eco do nome no blur do ID no Envio — verde "Evento: Nome — Produtora", ou vermelho "não encontrado" + botão) e `POST /api/evento` (`db.js:cadastrarEvento` → append em DADOS EVENTOS + invalida cache). Mata a ida ao Sheets no meio do envio e o envio para evento errado por dígito trocado.
+  - **Data de envio default = hoje** (horário local do cliente, nunca ISO/UTC) no Envio.
+- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras e toast/atualização in-place (entram no design system, onda 4); exibir OBSERVAÇÃO/Operadora/Chip (col D/E/P) na tela Máquinas; gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
+- Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente). Onda 3: `GET /api/evento/:id` validado read-only (evento real encontrado, inexistente→null) + boot com rotas novas registradas/protegidas. ⚠️ **Verificação VISUAL das telas logadas (KPIs clicáveis, eco/cadastro no Envio, data default) pendente — o Marcio confere no preview/prod.**
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
 - **Motivo**: cortar custo do Render (pago por serviço); a Vercel Pro já estava paga.

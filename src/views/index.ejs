@@ -90,7 +90,9 @@
     </div>
   <% } %>
 
+  <!-- KPIs clicáveis: cada card abre a tela Máquinas já filtrada (querystring). -->
   <div class="kpis">
+    <a href="/maquinas" style="display:contents" aria-label="Ver todas as máquinas">
     <div class="card-kpi kpi-total">
       <div>
         <div class="kpi-label">Total</div>
@@ -98,7 +100,9 @@
       </div>
       <div class="kpi-icon">📦</div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=estoque" style="display:contents" aria-label="Ver máquinas disponíveis (em estoque)">
     <div class="card-kpi kpi-disp">
       <div>
         <div class="kpi-label">Disponíveis</div>
@@ -121,7 +125,9 @@
       </div>
       <div class="kpi-icon">✅</div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=em%20uso" style="display:contents" aria-label="Ver máquinas em uso">
     <div class="card-kpi kpi-uso">
       <div>
         <div class="kpi-label">Em Uso</div>
@@ -129,7 +135,9 @@
       </div>
       <div class="kpi-icon">🚚</div>
     </div>
+    </a>
 
+    <a href="/maquinas?retorno=atrasada" style="display:contents" aria-label="Ver máquinas atrasadas">
     <div class="card-kpi kpi-atrasadas">
       <div>
         <div class="kpi-label">Atrasadas</div>
@@ -137,7 +145,9 @@
       </div>
       <div class="kpi-icon">⏰</div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=fixo" style="display:contents" aria-label="Ver máquinas fixas">
     <div class="card-kpi kpi-fixas">
       <div>
         <div class="kpi-label">Fixas</div>
@@ -145,6 +155,7 @@
       </div>
       <div class="kpi-icon">📌</div>
     </div>
+    </a>
   </div>
 
   <script>
