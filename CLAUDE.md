@@ -78,7 +78,7 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
-### 2026-07-10 — Auditoria minuciosa + Onda 0/1 (branch `feat/onda0-blindagem-e-fuso`)
+### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4/5 + Ajustes (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`, `feat/ajustes-ux`, `feat/onda5-excecoes`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
 - **Onda 0 — blindagem:**
@@ -90,8 +90,34 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - `db.js`: ranges ABERTOS `A2:O` / `A2:K` (fim do truncamento); `invalidarCacheMaquinas()` chamado após escrita; índice detecta seriais duplicados.
   - HTTP status reais (400/404/409/422/500) nas rotas de API; política ÚNICA no retorno (limpa J..M no CONTROLE, mantém vínculo no HISTÓRICO).
   - Higiene: `engines`+`.nvmrc` (Node 20), footer com ano dinâmico, contraste do badge "Vence hoje", `alt` no logo do login, comentário ESLint 10.
-- **DEFERIDO (precisa de decisão/smoke test):** gravar datas como `RAW` (A2) — muda o tipo das células numa planilha viva com Apps Script bound; fazer só após clonar/entender o GAS. Migração Neon, design system, telas de exceção: ondas seguintes.
-- Testes 8/8 verdes, lint limpo, smoke test de boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403).
+- **Onda 2 — robustez & testabilidade (branch `feat/onda2-robustez`, stacked sobre a onda0):**
+  - **Auth lazy** em `sheet.js` (`getSheetsClient()` memoizado) — importar a camada de dados não explode mais no load; destrava testes e evita crash de cold start por env faltando.
+  - **Erro ≠ vazio:** `getSheetData` PROPAGA erro (não vira `[]`); `getMaquinas`/`getMaquinasIndex`/`getResumo`/`getHistorico` propagam; as rotas passam `erro:true` → **banner** nas views (fim do "0 máquinas" silencioso). `getEventoInfo` **não cacheia null em erro de leitura** (fim do falso "ID não existe" grudado 5 min); `api.js` devolve **503** (planilha indisponível) ≠ **404** (ID não existe).
+  - **Lógica pura extraída** p/ `src/utils/dominio.js` (`resumoDeMaquinas`, `montarHistorico`) + `test/dominio.test.js` — cobre baldes de status, atrasadas (vence hoje = no prazo), e o **fix do "Envio Fixo devolvido"** (antes travava em "Fixo", agora "Devolvida").
+- **Onda 3 — experiência do operador (branch `feat/onda3-operador`, stacked sobre a onda2):**
+  - **KPIs do dashboard clicáveis** (`index.ejs`): cada card abre `/maquinas` já filtrado por querystring (`?f=estoque|em uso|fixo`, `?retorno=atrasada`). `maquinas.ejs` lê a querystring no load (filtro por substring de status). Resolve a pergunta nº1 "o que está atrasado?".
+  - **Lookup ao vivo + cadastro de evento no app** (A8): `GET /api/evento/:id` (eco do nome no blur do ID no Envio — verde "Evento: Nome — Produtora", ou vermelho "não encontrado" + botão) e `POST /api/evento` (`db.js:cadastrarEvento` → append em DADOS EVENTOS + invalida cache). Mata a ida ao Sheets no meio do envio e o envio para evento errado por dígito trocado.
+  - **Data de envio default = hoje** (horário local do cliente, nunca ISO/UTC) no Envio.
+- **Onda 4 — design system Ingresse (branch `feat/onda4-design`, stacked sobre a onda3):**
+  - **Tokens CSS** em `style.css` (`--brand:#FF271A`, `--ink:#1A1A1A`, superfícies/bordas/texto) + **dark mode** (`prefers-color-scheme` + `:root[data-theme]`). Sidebar preta com item ativo Blood Orange; cabeçalhos de tabela pretos.
+  - **Dark mode via localStorage** — toggle (lua/sol) no top-header + script **pré-paint** no `header.ejs` e `login.ejs` (evita flash). Persiste.
+  - **Sistema `.btn/.btn-primary/.btn-secondary/.btn-danger`**; botões azuis/laranja → Blood Orange; "Sair"/remover → danger.
+  - **Emoji → ícones Tabler** (SVG inline, `currentColor`): KPIs (📦✅🚚⏰📌), nav da sidebar, ☰ e 👤.
+  - **Login reskin** (preto + Blood Orange), `width:min(420px,92vw)`.
+  - Tokenizados os `<style>` inline de todas as telas (dashboard/máquinas/histórico/envio) p/ funcionar em dark; removido CSS morto do `style.css`.
+  - ✅ **VERIFICADO NO NAVEGADOR** (preview + usuário de teste local, revertido): login/dashboard/máquinas/envio em **light e dark**, toggle persistindo, filtro dos KPIs funcionando (`?f=estoque` → 80). Fonte: stack de sistema com "Inter" (self-host do woff2 fica p/ quando tivermos os arquivos da fonte).
+- **Ajustes de UX/design (branch `feat/ajustes-ux`, stacked sobre a onda4):**
+  - `db.js` lê col P (OBSERVAÇÃO) + D (Operadora) + E (Info Chip) + H (Processando) — range `A2:P`. Tela **Máquinas** ganha coluna **Obs** (com Operadora/Chip no tooltip) + badge **"proc."** quando Processando=Sim, e o Salvar **avisa** antes de alterar máquina em processamento.
+  - **Toast** não-bloqueante (`showToast` no footer + `.toast` no CSS) substitui `alert()`: Salvar status agora atualiza a linha **in-place** (preserva filtros, sem `location.reload`); Envio mostra toast.
+  - **Empty-state** na tabela Máquinas (sem dados / filtro sem resultado) + contador correto no load.
+  - ✅ Verificado no navegador (DOM): 552 células Obs, 5 badges "proc" (= 5 Processando no banco), empty-state ao filtrar 0, toast ok(verde)/err(vermelho). (Screenshots do preview travaram — problema do renderer, não do código.)
+- **Onda 5 — telas de exceção (branch `feat/onda5-excecoes`, stacked sobre ajustes):**
+  - `src/excecoes.js` — repositório das 3 abas antes ignoradas (PERDIDAS/TROCAS/LOCALIZAR): leituras (`getPerdidas/getTrocas/getLocalizar`) + escritas (`marcarPerdida` → append PERDIDAS + status "Perdida" na CONTROLE, com rollback; `registrarTroca` → append TROCAS + status "Defeito"; `enviarParaLocalizar` → append LOCALIZAR + status "Localizar"). Módulo isolado p/ virar adapter Neon depois.
+  - Rota + tela `/excecoes` (menu "Exceções"): 3 seções com lista + formulário de ação, tokenizada no design system.
+  - **Endpoints gated pelo flag `EXCECOES_ATIVAS`** (`POST /api/perdida|troca|localizar`): default OFF → **403** (não grava nada); UI mostra "somente leitura" e botões desabilitados. **O Marcio liga o flag na Vercel quando quiser validar com dados reais.** Escrever "Perdida"/"Defeito"/"Localizar" no status tira a máquina das contagens (corrige "perdida contava como disponível").
+  - ✅ Verificado no navegador: leituras 47/26/15 (dados reais), tela renderiza, gate 403 nos 3 endpoints com flag off. Escritas verificadas por code-review (gated, sem tocar dados reais). ⚠️ **Possível gotcha:** se as abas tiverem "intervalo protegido" no Sheets, a SA `maquinas-dashboard@…` precisa entrar nos editores da proteção — descobrir ao ligar o flag.
+- **DEFERIDO (ondas seguintes / decisão):** ação "marcar perdida/localizar" contextual na tela Máquinas (hoje só na /excecoes); scanner de código de barras; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). **Onda 6 (migração Neon):** precisa das decisões (clonar GAS bound, curadoria dos dados-lixo).
+- Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente). Onda 3: `GET /api/evento/:id` validado read-only (evento real encontrado, inexistente→null) + boot com rotas novas registradas/protegidas. ⚠️ **Verificação VISUAL das telas logadas (KPIs clicáveis, eco/cadastro no Envio, data default) pendente — o Marcio confere no preview/prod.**
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
 - **Motivo**: cortar custo do Render (pago por serviço); a Vercel Pro já estava paga.

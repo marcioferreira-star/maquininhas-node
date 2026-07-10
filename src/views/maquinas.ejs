@@ -12,29 +12,32 @@
   .filters-box select {
     height: 38px;
     padding-left: 10px;
-    border-radius: 6px;
-    border: 1px solid #ccc;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
     flex: 1;
   }
 
   .btn-limpar, .btn-exportar {
     height: 38px;
     padding: 0 18px;
-    border-radius: 6px;
-    border: none;
+    border-radius: 8px;
     cursor: pointer;
-    color: #fff;
     white-space: nowrap;
+    font-weight: 600;
   }
 
-  .btn-limpar { background: #555; }
-  .btn-exportar { background: #0a7cff; }
+  .btn-limpar { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn-limpar:hover { background: var(--surface-2); }
+  .btn-exportar { background: var(--brand); color: #fff; border: none; }
+  .btn-exportar:hover { background: var(--brand-hover); }
 
   #contador {
     font-size: 15px;
     font-weight: bold;
     margin-bottom: 8px;
-    color: #333;
+    color: var(--text);
   }
 
   .table-wrapper {
@@ -42,21 +45,22 @@
     overflow-y: auto;
     overflow-x: auto;                /* ✅ scroll horizontal */
     -webkit-overflow-scrolling: touch;
-    border-radius: 8px;
-    border: 1px solid #c9c9c9;
+    border-radius: 10px;
+    border: 1px solid var(--border);
   }
 
   table {
     width: 100%;
     min-width: 900px;                /* ✅ evita esmagar colunas */
     border-collapse: collapse;
+    background: var(--surface);
   }
 
   thead th {
     position: sticky;
     top: 0;
-    background: #0057d8;
-    color: white;
+    background: var(--table-head-bg);
+    color: var(--table-head-fg);
     padding: 10px;
     font-size: 14px;
     z-index: 5;
@@ -65,19 +69,22 @@
 
   tbody td {
     padding: 10px;
-    background: #fff;
-    border-bottom: 1px solid #eee;
+    background: var(--surface);
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
     white-space: nowrap;             /* ✅ não quebra letra por letra */
   }
 
   .btn-salvar {
-    background: #0066ff;
+    background: var(--brand);
     border: none;
     padding: 6px 14px;
-    color: white;
-    border-radius: 6px;
+    color: #fff;
+    border-radius: 8px;
     cursor: pointer;
+    font-weight: 600;
   }
+  .btn-salvar:hover { background: var(--brand-hover); }
 
   /* ✅ MOBILE: filtros quebram linha */
   @media (max-width: 900px){
@@ -97,6 +104,12 @@
 
 <div class="main-content">
   <h1>Máquinas Cadastradas</h1>
+
+  <% if (typeof erro !== "undefined" && erro) { %>
+    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+      Não foi possível carregar as máquinas agora — a planilha está indisponível. Recarregue em instantes.
+    </div>
+  <% } %>
 
   <div id="contador">Exibindo 0 máquinas</div>
 
@@ -140,6 +153,7 @@
           <th>Empresa</th>
           <th>ID Evento</th>
           <th>Data Retorno</th>
+          <th>Obs</th>
           <th>Ação</th>
         </tr>
       </thead>
@@ -157,6 +171,7 @@
           data-produtora="<%= (m.produtora || '-') %>"
           data-comercial="<%= (m.comercial || '-') %>"
           data-retorno="<%= (m.dataRetorno || '-') %>"
+          data-processando="<%= (m.processando || '-').trim() %>"
         >
           <td><%= i + 1 %></td>
           <td><%= m.modelo || '-' %></td>
@@ -179,8 +194,16 @@
           <!-- ✅ Fixo também mostra retorno (vai ser "-") -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
 
+          <!-- OBSERVAÇÃO (col P) + Operadora/Chip no tooltip + badge "Processando" -->
+          <% const _obs = (m.observacao && m.observacao !== '-') ? m.observacao : ''; %>
+          <% const _tip = [ (m.operadora && m.operadora !== '-') ? ('Operadora: ' + m.operadora) : '', (m.infoChip && m.infoChip !== '-') ? ('Chip: ' + m.infoChip) : '', _obs ? ('Obs: ' + _obs) : '' ].filter(Boolean).join('  |  '); %>
+          <td class="obs-cell" title="<%= _tip %>">
+            <span style="display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _obs %></span>
+            <% if (String(m.processando).trim() === 'Sim') { %><span class="badge-proc">proc.</span><% } %>
+          </td>
+
           <td>
-            <button 
+            <button
               class="btn-salvar"
               data-serial="<%= m.serial %>"
               data-select="status_<%= m.linha %>"
@@ -191,6 +214,10 @@
         </tr>
 
         <% }) %>
+
+        <tr id="emptyRow" class="empty-row" style="<%= maquinas.length === 0 ? '' : 'display:none' %>">
+          <td colspan="9">Nenhuma máquina encontrada para os filtros aplicados.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -213,11 +240,20 @@ const btnExportar   = document.getElementById("btnExportar");
 const contador      = document.getElementById("contador");
 
 /* ============================================================
+      FILTRO INICIAL (vindo do dashboard via querystring)
+      ?f=<substring de status: estoque|em uso|fixo>  e/ou  ?retorno=<atrasada|...>
+============================================================ */
+const _params = new URLSearchParams(location.search);
+let statusInicial = (_params.get("f") || "").toLowerCase().trim();
+
+/* ============================================================
       FUNÇÃO CONTADOR
 ============================================================ */
 function atualizarContador() {
   const vis = linhas.filter(l => l.style.display !== "none").length;
   contador.innerHTML = `Exibindo <b>${vis}</b> de <b>${linhas.length}</b> máquinas`;
+  const empty = document.getElementById("emptyRow");
+  if (empty) empty.style.display = (vis === 0) ? "" : "none";
 }
 
 /* ============================================================
@@ -248,6 +284,8 @@ function aplicarFiltros() {
     }
 
     if (st && status !== st) mostrar = false;
+    // filtro inicial por substring de status (vindo do KPI do dashboard)
+    if (statusInicial && !(status || "").toLowerCase().includes(statusInicial)) mostrar = false;
     if (emp && empresa !== emp) mostrar = false;
     /* ----- Evento (múltiplos) ----- */
     if (ev) {
@@ -343,8 +381,15 @@ btnLimpar.addEventListener("click", () => {
   filtroEmpresa.value = "";
   filtroEvento.value = "";
   filtroRetorno.value = "";
+  statusInicial = ""; // também limpa o filtro que veio do dashboard
   aplicarFiltros();
 });
+
+/* ============================================================
+      APLICA O FILTRO INICIAL DA QUERYSTRING (se houver)
+============================================================ */
+if (_params.get("retorno")) filtroRetorno.value = _params.get("retorno");
+if (statusInicial || _params.get("retorno")) aplicarFiltros();
 
 /* ============================================================
       EXPORTAR
@@ -378,23 +423,49 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
   btn.addEventListener("click", async () => {
     const serial = btn.dataset.serial;
     const status = document.getElementById(btn.dataset.select).value;
+    const row = btn.closest("tr");
 
-    const resp = await fetch("/api/atualizar-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ serial, status })
-    });
+    // avisa se a máquina está marcada como "Processando?" (col H)
+    if (row && row.dataset.processando === "Sim") {
+      if (!confirm("Esta máquina está marcada como 'Processando'. Alterar o status mesmo assim?")) return;
+    }
 
-    const data = await resp.json();
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/atualizar-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ serial, status })
+      });
+      const data = await resp.json();
 
-    if (data.ok) {
-      alert("Status atualizado!");
-      location.reload();
-    } else {
-      alert("Erro ao atualizar.");
+      if (data.ok) {
+        showToast("Status atualizado");
+        if (row) {
+          // atualização in-place (preserva filtros/rolagem — sem location.reload)
+          row.dataset.status = status;
+          // reflete a limpeza de evento/retorno que o backend faz ao virar Estoque/Fixo
+          if (status.startsWith("Estoque")) {
+            row.children[5].textContent = "-";
+            row.children[6].textContent = "-";
+          } else if (status === "Fixo") {
+            row.children[6].textContent = "-";
+          }
+          aplicarFiltros(); // a linha pode sair do filtro atual
+        }
+      } else {
+        showToast(data.msg || "Erro ao atualizar", "err");
+      }
+    } catch (e) {
+      showToast("Erro de rede ao salvar", "err");
+    } finally {
+      btn.disabled = false;
     }
   });
 });
+
+// contador + empty-state no load (antes só atualizava ao filtrar)
+atualizarContador();
 
 /* INIT */
 atualizarFiltrosInteligentes();

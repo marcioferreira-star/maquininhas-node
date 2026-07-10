@@ -3,7 +3,8 @@ import {
   getSheetData,
   appendToSheet
 } from "./sheet.js";
-import { parseBRDate, startOfDayLocal, situacaoPrazo, serialSheetParaBR } from "./utils/datas.js";
+import { startOfDayLocal, serialSheetParaBR } from "./utils/datas.js";
+import { resumoDeMaquinas, montarHistorico } from "./utils/dominio.js";
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
@@ -61,52 +62,52 @@ export function invalidarCacheMaquinas() {
 export async function getMaquinas(options = {}) {
   const force = !!options.force;
 
-  try {
-    if (!force && isFresh(CACHE.maquinas.ts, CACHE.maquinas.ttlMs)) {
-      return CACHE.maquinas.data;
-    }
+  if (!force && isFresh(CACHE.maquinas.ts, CACHE.maquinas.ttlMs)) {
+    return CACHE.maquinas.data;
+  }
 
-    // range ABERTO (A2:O) — o Sheets limita pelo fim dos dados. Antes era
-    // A2:O2000, que truncaria silenciosamente ao passar de ~2000 máquinas.
-    const range = `'${SHEET_NAME}'!A2:O`;
-    const dados = await getSheetData(range);
+  // range ABERTO (A2:P) — inclui Operadora(D), Info Chip(E), Processando(H) e
+  // OBSERVAÇÃO(P), antes ignoradas. O Sheets limita pelo fim dos dados.
+  // getSheetData PROPAGA erro (throw) → não cacheamos [] disfarçando falha de API.
+  const range = `'${SHEET_NAME}'!A2:P`;
+  const dados = await getSheetData(range);
 
-    if (!dados || dados.length === 0) {
-      CACHE.maquinas.ts = now();
-      CACHE.maquinas.data = [];
-      // também invalida index
-      CACHE.maquinasIndex.ts = 0;
-      CACHE.maquinasIndex.data = new Map();
-      return [];
-    }
-
-    const maquinas = dados.map((linha, i) => ({
-      linha: i + 2,
-      modelo: linha[1] || "-",
-      serial: linha[2] || "-",
-      status: linha[6] || "-",
-      empresa: linha[8] || "-",
-      idEvento: linha[9] || "-",
-      nomeEvento: linha[10] || "-",
-      produtora: linha[11] || "-",
-      comercial: linha[12] || "-",
-      // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
-      dataSaida: serialSheetParaBR(linha[13]) || "-",
-      dataRetorno: serialSheetParaBR(linha[14]) || "-"
-    }));
-
+  if (!dados || dados.length === 0) {
     CACHE.maquinas.ts = now();
-    CACHE.maquinas.data = maquinas;
-
-    // invalida o index para ser reconstruído com esse snapshot
+    CACHE.maquinas.data = [];
+    // também invalida index
     CACHE.maquinasIndex.ts = 0;
     CACHE.maquinasIndex.data = new Map();
-
-    return maquinas;
-  } catch (err) {
-    console.error("❌ Erro ao carregar máquinas:", err);
     return [];
   }
+
+  const maquinas = dados.map((linha, i) => ({
+    linha: i + 2,
+    modelo: linha[1] || "-",
+    serial: linha[2] || "-",
+    operadora: linha[3] || "-",     // col D
+    infoChip: linha[4] || "-",      // col E
+    status: linha[6] || "-",
+    processando: linha[7] || "-",   // col H
+    empresa: linha[8] || "-",
+    idEvento: linha[9] || "-",
+    nomeEvento: linha[10] || "-",
+    produtora: linha[11] || "-",
+    comercial: linha[12] || "-",
+    // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
+    dataSaida: serialSheetParaBR(linha[13]) || "-",
+    dataRetorno: serialSheetParaBR(linha[14]) || "-",
+    observacao: linha[15] || "-"    // col P
+  }));
+
+  CACHE.maquinas.ts = now();
+  CACHE.maquinas.data = maquinas;
+
+  // invalida o index para ser reconstruído com esse snapshot
+  CACHE.maquinasIndex.ts = 0;
+  CACHE.maquinasIndex.data = new Map();
+
+  return maquinas;
 }
 
 /* ============================================================
@@ -115,145 +116,94 @@ export async function getMaquinas(options = {}) {
 export async function getMaquinasIndex(options = {}) {
   const force = !!options.force;
 
-  try {
-    if (!force && isFresh(CACHE.maquinasIndex.ts, CACHE.maquinasIndex.ttlMs)) {
-      return CACHE.maquinasIndex.data;
-    }
-
-    const arr = await getMaquinas({ force });
-
-    const map = new Map();
-    // seriais que aparecem 2×+ na CONTROLE são ambíguos: map.set sobrescreveria
-    // silenciosamente e a resolução "sempre pelo serial" gravaria na linha errada.
-    // Guardamos os duplicados p/ a rota recusar a operação (ver api.js).
-    const duplicados = new Set();
-    for (const m of arr) {
-      const serial = String(m.serial || "").trim();
-      if (serial && serial !== "-") {
-        if (map.has(serial)) duplicados.add(serial);
-        map.set(serial, m);
-      }
-    }
-    map.duplicados = duplicados;
-
-    CACHE.maquinasIndex.ts = now();
-    CACHE.maquinasIndex.data = map;
-
-    return map;
-  } catch (err) {
-    console.error("❌ Erro ao montar index de máquinas:", err);
-    return new Map();
+  if (!force && isFresh(CACHE.maquinasIndex.ts, CACHE.maquinasIndex.ttlMs)) {
+    return CACHE.maquinasIndex.data;
   }
+
+  const arr = await getMaquinas({ force }); // propaga erro de leitura
+
+  const map = new Map();
+  // seriais que aparecem 2×+ na CONTROLE são ambíguos: map.set sobrescreveria
+  // silenciosamente e a resolução "sempre pelo serial" gravaria na linha errada.
+  // Guardamos os duplicados p/ a rota recusar a operação (ver api.js).
+  const duplicados = new Set();
+  for (const m of arr) {
+    const serial = String(m.serial || "").trim();
+    if (serial && serial !== "-") {
+      if (map.has(serial)) duplicados.add(serial);
+      map.set(serial, m);
+    }
+  }
+  map.duplicados = duplicados;
+
+  CACHE.maquinasIndex.ts = now();
+  CACHE.maquinasIndex.data = map;
+
+  return map;
 }
 
 /* ============================================================
    🔵 RESUMO DASHBOARD
 ============================================================ */
 export async function getResumo() {
-  try {
-    const maquinas = await getMaquinas();
-    const hoje = startOfDayLocal(); // ✅ compara dia-a-dia, sem ruído do horário/UTC
-
-    let disponiveisSP = 0;
-    let disponiveisRJ = 0;
-    let disponiveisURA = 0;
-
-    const total = maquinas.length;
-
-    const disponiveis = maquinas.filter(m => {
-      const st = (m.status || "").toUpperCase();
-
-      if (st.includes("ESTOQUE")) {
-        if (st.includes("SP")) disponiveisSP++;
-        else if (st.includes("RJ")) disponiveisRJ++;
-        else if (st.includes("URA")) disponiveisURA++;
-        return true;
-      }
-      return false;
-    }).length;
-
-    const emUso = maquinas.filter(m => {
-      const st = (m.status || "").toLowerCase().trim();
-      return st.includes("em uso") || st === "fixo";
-    }).length;
-
-    const fixas = maquinas.filter(m =>
-      (m.status || "").toLowerCase().trim() === "fixo"
-    ).length;
-
-    const atrasadas = maquinas.filter(m => {
-      const st = (m.status || "").toLowerCase().trim();
-      if (st === "fixo") return false;
-      if (!st.includes("em uso")) return false;
-
-      const dataRet = parseBRDate(m.dataRetorno); // meia-noite local ou null
-      if (!dataRet) return false;
-
-      // ✅ atrasada só se a data de retorno JÁ PASSOU (vence hoje = ainda no prazo)
-      return dataRet < hoje;
-    }).length;
-
-    return {
-      total,
-      disponiveis,
-      disponiveisSP,
-      disponiveisRJ,
-      disponiveisURA,
-      emUso,
-      fixas,
-      atrasadas
-    };
-  } catch (err) {
-    console.error("❌ Erro resumo:", err);
-    return {
-      total: 0,
-      disponiveis: 0,
-      disponiveisSP: 0,
-      disponiveisRJ: 0,
-      disponiveisURA: 0,
-      emUso: 0,
-      fixas: 0,
-      atrasadas: 0
-    };
-  }
+  const maquinas = await getMaquinas(); // propaga erro de leitura
+  // ✅ compara dia-a-dia, "hoje" em BRT (ver utils/datas.js). Lógica pura testável.
+  return resumoDeMaquinas(maquinas, startOfDayLocal());
 }
 
 /* ============================================================
    🔵 BUSCAR DADOS DO EVENTO (COM CACHE)
 ============================================================ */
 export async function getEventoInfo(idEvento) {
-  try {
-    const alvo = String(idEvento || "").trim();
-    if (!alvo) return null;
+  const alvo = String(idEvento || "").trim();
+  if (!alvo) return null;
 
-    // cache hit
-    const cached = CACHE.eventoInfo.map.get(alvo);
-    if (cached && isFresh(cached.ts, CACHE.eventoInfo.ttlMs)) {
-      return cached.data;
-    }
+  // cache hit
+  const cached = CACHE.eventoInfo.map.get(alvo);
+  if (cached && isFresh(cached.ts, CACHE.eventoInfo.ttlMs)) {
+    return cached.data;
+  }
 
-    // lê planilha
-    const linhas = await getSheetData(`'${EVENTOS_SHEET}'!A2:D`);
-    const row = linhas.find(r => String(r[0]).trim() === alvo);
+  // ⚠️ getSheetData PROPAGA erro (throw). NÃO cacheamos null nesse caso —
+  // senão uma falha transitória da API vira "ID não existe" grudado por 5 min.
+  // Só cacheamos null quando a leitura funcionou e o evento realmente não está lá.
+  const linhas = await getSheetData(`'${EVENTOS_SHEET}'!A2:D`);
+  const row = linhas.find((r) => String(r[0]).trim() === alvo);
 
-    if (!row) {
-      CACHE.eventoInfo.map.set(alvo, { ts: now(), data: null });
-      return null;
-    }
-
-    const data = {
-      id_evento: row[0],
-      nome_evento: row[1] || "-",
-      produtora: row[2] || "-",
-      comercial: row[3] || "-"
-    };
-
-    CACHE.eventoInfo.map.set(alvo, { ts: now(), data });
-    return data;
-  } catch (err) {
-    console.error("❌ Erro ao buscar dados do evento:", err);
+  if (!row) {
+    CACHE.eventoInfo.map.set(alvo, { ts: now(), data: null });
     return null;
   }
+
+  const data = {
+    id_evento: row[0],
+    nome_evento: row[1] || "-",
+    produtora: row[2] || "-",
+    comercial: row[3] || "-"
+  };
+
+  CACHE.eventoInfo.map.set(alvo, { ts: now(), data });
+  return data;
+}
+
+/* ============================================================
+   🔵 CADASTRAR EVENTO (aba DADOS EVENTOS)
+   - Append de 1 linha (ID, Nome, Produtora, Comercial).
+   - Invalida o cache daquele ID p/ o lookup seguinte já enxergar.
+============================================================ */
+export async function cadastrarEvento({ id, nome, produtora, comercial }) {
+  const alvo = String(id || "").trim();
+  if (!alvo) return false;
+
+  const ok = await appendToSheet(`'${EVENTOS_SHEET}'!A:D`, [
+    alvo,
+    String(nome || "-"),
+    String(produtora || "-"),
+    String(comercial || "-")
+  ]);
+
+  if (ok) CACHE.eventoInfo.map.delete(alvo); // força re-leitura fresca
+  return ok;
 }
 
 /* ============================================================
@@ -295,50 +245,8 @@ export async function registrarMovimento(info) {
    - situacao: prazo calculado AO VIVO (ver utils/datas.js)
 ============================================================ */
 export async function getHistorico() {
-  try {
-    // range ABERTO (A2:K) — HISTORICO é append-only e cresce sempre; teto fixo truncaria.
-    const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K`);
-    if (!dados || dados.length === 0) return [];
-
-    // índice do ÚLTIMO movimento de cada serial (planilha está em ordem cronológica de append)
-    const ultimoIdxPorSerial = new Map();
-    dados.forEach((l, i) => {
-      const s = String(l[0] || "").trim();
-      if (s) ultimoIdxPorSerial.set(s, i);
-    });
-
-    return dados.map((l, i) => {
-      const serial = String(l[0] || "-").trim();
-      const acao = l[2] || "-";
-      // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
-      const saida = serialSheetParaBR(l[3]) || "-";
-      const retorno = serialSheetParaBR(l[4]) || "-";
-
-      // Situação de prazo AO VIVO (ignora o texto congelado na planilha).
-      // Só vale para a linha de Envio que ainda é o ÚLTIMO movimento do serial
-      // (ou seja, a máquina ainda está fora). Envios já sucedidos por um retorno = "Devolvida".
-      let situacao = situacaoPrazo(acao, retorno);
-      if (situacao && situacao !== "Fixo" && ultimoIdxPorSerial.get(serial) !== i) {
-        situacao = "Devolvida";
-      }
-
-      return {
-        serial,
-        evento: String(l[1] || "-").trim(),
-        acao,
-        saida,
-        retorno,
-        status: l[5] || "-",
-        situacao,
-        usuario: l[6] || "-",
-        nome_evento: l[7] || "-",
-        produtora: l[8] || "-",
-        comercial: l[9] || "-",
-        obs: l[10] || "-"
-      };
-    });
-  } catch (err) {
-    console.error("❌ Erro getHistorico:", err);
-    return [];
-  }
+  // range ABERTO (A2:K) — HISTORICO é append-only e cresce sempre; teto fixo truncaria.
+  // getSheetData PROPAGA erro; a derivação (situação/Devolvida) é pura e testável.
+  const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K`);
+  return montarHistorico(dados);
 }

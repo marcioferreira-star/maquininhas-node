@@ -41,19 +41,19 @@
     .kpi-atrasadas  { background: #e74c3c; }
     .kpi-fixas      { background: #6c5ce7; }
     .kpi-icon {
-      font-size: 58px;
       position: absolute;
       right: 18px;
       bottom: 14px;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+      opacity: 0.85;
       pointer-events: none;
     }
+    .kpi-icon svg { width: 54px; height: 54px; }
     /* na card Disponíveis o ícone cobria o sub-valor URA — sobe pro topo e diminui */
     .kpi-disp .kpi-icon {
       top: 16px;
       bottom: auto;
-      font-size: 38px;
     }
+    .kpi-disp .kpi-icon svg { width: 34px; height: 34px; }
     .kpi-label {
       font-size: 16px;
       font-weight: 600;
@@ -84,15 +84,25 @@
 
   <h1>Dashboard</h1>
 
+  <% if (typeof erro !== "undefined" && erro) { %>
+    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+      Não foi possível carregar os dados agora — a planilha está indisponível. Recarregue a página em instantes.
+    </div>
+  <% } %>
+
+  <!-- KPIs clicáveis: cada card abre a tela Máquinas já filtrada (querystring). -->
   <div class="kpis">
+    <a href="/maquinas" style="display:contents" aria-label="Ver todas as máquinas">
     <div class="card-kpi kpi-total">
       <div>
         <div class="kpi-label">Total</div>
         <div class="kpi-value" id="kpiTotal">0</div>
       </div>
-      <div class="kpi-icon">📦</div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/></svg></div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=estoque" style="display:contents" aria-label="Ver máquinas disponíveis (em estoque)">
     <div class="card-kpi kpi-disp">
       <div>
         <div class="kpi-label">Disponíveis</div>
@@ -113,32 +123,39 @@
           </div>
         </div>
       </div>
-      <div class="kpi-icon">✅</div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2l4-4"/></svg></div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=em%20uso" style="display:contents" aria-label="Ver máquinas em uso">
     <div class="card-kpi kpi-uso">
       <div>
         <div class="kpi-label">Em Uso</div>
         <div class="kpi-value" id="kpiUso">0</div>
       </div>
-      <div class="kpi-icon">🚚</div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-3"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="17" cy="18" r="1.7"/></svg></div>
     </div>
+    </a>
 
+    <a href="/maquinas?retorno=atrasada" style="display:contents" aria-label="Ver máquinas atrasadas">
     <div class="card-kpi kpi-atrasadas">
       <div>
         <div class="kpi-label">Atrasadas</div>
         <div class="kpi-value" id="kpiAtras">0</div>
       </div>
-      <div class="kpi-icon">⏰</div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
     </div>
+    </a>
 
+    <a href="/maquinas?f=fixo" style="display:contents" aria-label="Ver máquinas fixas">
     <div class="card-kpi kpi-fixas">
       <div>
         <div class="kpi-label">Fixas</div>
         <div class="kpi-value" id="kpiFixas">0</div>
       </div>
-      <div class="kpi-icon">📌</div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 6-8 6-11a6 6 0 1 0-12 0c0 3 2 6 6 11z"/><circle cx="12" cy="10" r="2"/></svg></div>
     </div>
+    </a>
   </div>
 
   <script>

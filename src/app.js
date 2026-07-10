@@ -15,6 +15,7 @@ import maquinasRoutes from "./routes/maquinas.js";
 import envioRoutes from "./routes/envio.js";
 import apiRoutes from "./routes/api.js";
 import historicoRoutes from "./routes/historico.js";
+import excecoesRoutes from "./routes/excecoes.js";
 
 // Middleware de autenticação
 import { requireLogin } from "./auth/authMiddleware.js";
@@ -91,6 +92,8 @@ app.use(
 ============================================================ */
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
+  // flag p/ as views mostrarem/ocultarem os botões de ação de exceção
+  res.locals.excecoesAtivas = process.env.EXCECOES_ATIVAS === "1";
   next();
 });
 
@@ -137,6 +140,7 @@ app.use("/", requireLogin, indexRoutes);
 app.use("/maquinas", requireLogin, maquinasRoutes);
 app.use("/envio", requireLogin, envioRoutes);
 app.use("/historico", requireLogin, historicoRoutes);
+app.use("/excecoes", requireLogin, excecoesRoutes);
 app.use("/api", requireLogin, apiRoutes);
 
 export default app;
