@@ -219,7 +219,7 @@
         >
         <!-- eco ao vivo do nome do evento + cadastro rápido quando não existe -->
         <div id="ecoEvento" style="font-size:13px;margin-top:6px;min-height:18px;"></div>
-        <div id="formNovoEvento" style="display:none;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;">
+        <div id="formNovoEvento" style="display:none;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);">
           <div style="font-weight:600;margin-bottom:6px;font-size:13px;">Cadastrar evento <span id="novoEventoId"></span></div>
           <input type="text" id="novoEventoNome" class="form-control" placeholder="Nome do evento" style="margin-bottom:6px;">
           <input type="text" id="novoEventoProdutora" class="form-control" placeholder="Produtora (opcional)" style="margin-bottom:6px;">
@@ -449,8 +449,8 @@ form.addEventListener("submit", async (e) => {
   const dt_retorno = document.getElementById("dtRetorno").value || "";
   const obs = document.getElementById("obs").value || "";
 
-  if (!acao) return alert("Selecione uma ação.");
-  if (selecionadas.length === 0) return alert("Selecione ao menos 1 máquina.");
+  if (!acao) { showToast("Selecione uma ação.", "err"); return; }
+  if (selecionadas.length === 0) { showToast("Selecione ao menos 1 máquina.", "err"); return; }
 
   const isEnvio = acao.includes("Envio");
   const isRetorno = acao.includes("Retorno");
@@ -458,14 +458,14 @@ form.addEventListener("submit", async (e) => {
 
   // validações do fluxo (igual backend)
   if (isEnvio) {
-    if (!id_evento) return alert("Informe o ID do Evento.");
-    if (!dt_saida) return alert("Informe a Data de Envio.");
-    if (!isEnvioFixo && !dt_retorno) return alert("Informe a Data de Retorno.");
+    if (!id_evento) { showToast("Informe o ID do Evento.", "err"); return; }
+    if (!dt_saida) { showToast("Informe a Data de Envio.", "err"); return; }
+    if (!isEnvioFixo && !dt_retorno) { showToast("Informe a Data de Retorno (Envio Fixo dispensa).", "err"); return; }
   }
 
   // valida status
   const erros = validarStatus(acao, selecionadas);
-  if (erros.length) return alert("Ajuste antes de prosseguir:\n\n" + erros.join("\n"));
+  if (erros.length) { showToast("Ajuste antes de prosseguir: " + erros.join(" · "), "err"); return; }
 
   btnRegistrar.disabled = true;
   const txtOriginal = btnRegistrar.textContent;
@@ -492,7 +492,7 @@ form.addEventListener("submit", async (e) => {
       );
 
       if (!origem) {
-        alert("Operação cancelada. Sem origem não é possível registrar esses retornos.");
+        showToast("Operação cancelada. Sem origem não é possível registrar esses retornos.", "err");
         return;
       }
 
@@ -559,7 +559,7 @@ async function lookupEvento() {
       const b = document.createElement("button");
       b.type = "button";
       b.textContent = "Cadastrar este evento";
-      b.style.cssText = "background:none;border:none;color:#0a58ca;text-decoration:underline;cursor:pointer;padding:0;font-size:13px;";
+      b.style.cssText = "background:none;border:none;color:var(--brand);text-decoration:underline;cursor:pointer;padding:0;font-size:13px;font-weight:600;";
       b.addEventListener("click", () => {
         document.getElementById("novoEventoId").textContent = "#" + id;
         formNovoEvento.style.display = "";
@@ -583,7 +583,7 @@ if (btnSalvarEvento) {
   btnSalvarEvento.addEventListener("click", async () => {
     const id = idEvento.value.trim();
     const nome = document.getElementById("novoEventoNome").value.trim();
-    if (!id || !nome) { alert("Informe ao menos o ID e o nome do evento."); return; }
+    if (!id || !nome) { showToast("Informe ao menos o ID e o nome do evento.", "err"); return; }
     btnSalvarEvento.disabled = true;
     try {
       const r = await fetch("/api/evento", {
@@ -598,12 +598,13 @@ if (btnSalvarEvento) {
       });
       const data = await r.json();
       if (data.ok) {
+        showToast("Evento cadastrado.");
         await lookupEvento(); // re-valida: agora o evento existe → eco verde
       } else {
-        alert(data.msg || "Não foi possível cadastrar o evento.");
+        showToast(data.msg || "Não foi possível cadastrar o evento.", "err");
       }
     } catch (e) {
-      alert("Erro de rede ao cadastrar o evento.");
+      showToast("Erro de rede ao cadastrar o evento.", "err");
     } finally {
       btnSalvarEvento.disabled = false;
     }
