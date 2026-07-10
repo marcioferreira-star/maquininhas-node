@@ -11,6 +11,15 @@ import {
 
 import { batchUpdateValues } from "../sheet.js";
 import { hojeBR, parseBRDate } from "../utils/datas.js";
+import {
+  marcarPerdida,
+  registrarTroca,
+  enviarParaLocalizar,
+  ErroExcecao
+} from "../excecoes.js";
+
+// flag: as ações de exceção (perda/troca/localizar) só gravam quando ligado.
+const excecoesAtivas = () => process.env.EXCECOES_ATIVAS === "1";
 
 const router = express.Router();
 
@@ -566,6 +575,53 @@ router.post("/evento", async (req, res) => {
     console.error("❌ ERRO /api/evento (POST):", err);
     return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
   }
+});
+
+/* ======================================================
+   AÇÕES DE EXCEÇÃO — gated pelo flag EXCECOES_ATIVAS
+   (default OFF: retorna 403 até o Marcio ligar e validar)
+====================================================== */
+function gateExcecoes(res) {
+  if (!excecoesAtivas()) {
+    res.status(403).json({
+      ok: false,
+      msg: "Ações de exceção desativadas. Ligue EXCECOES_ATIVAS=1 para habilitar."
+    });
+    return false;
+  }
+  return true;
+}
+
+async function tratarAcaoExcecao(res, fn) {
+  try {
+    await fn();
+    return res.json({ ok: true });
+  } catch (e) {
+    if (e instanceof ErroExcecao) return res.status(400).json({ ok: false, msg: e.message });
+    console.error("❌ ação de exceção:", e);
+    return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
+  }
+}
+
+// POST /api/perdida — marca máquina como perdida (PERDIDAS + status na CONTROLE)
+router.post("/perdida", async (req, res) => {
+  if (!gateExcecoes(res)) return;
+  const { serial, responsavel, observacao } = req.body || {};
+  return tratarAcaoExcecao(res, () => marcarPerdida({ serial, responsavel, observacao }));
+});
+
+// POST /api/troca — registra troca (defeituosa → nova)
+router.post("/troca", async (req, res) => {
+  if (!gateExcecoes(res)) return;
+  const { serialDefeito, problema, local, serialNova } = req.body || {};
+  return tratarAcaoExcecao(res, () => registrarTroca({ serialDefeito, problema, local, serialNova }));
+});
+
+// POST /api/localizar — envia máquina para localizar (LOCALIZAR)
+router.post("/localizar", async (req, res) => {
+  if (!gateExcecoes(res)) return;
+  const { serial, referencia } = req.body || {};
+  return tratarAcaoExcecao(res, () => enviarParaLocalizar({ serial, referencia }));
 });
 
 export default router;

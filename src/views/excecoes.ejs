@@ -1,0 +1,192 @@
+<%- include('partials/header') %>
+<%- include('partials/sidebar', { page: 'excecoes', user }) %>
+
+<style>
+  .exc-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+  }
+  .exc-section h2 {
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .exc-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .exc-count { color: var(--muted); font-weight: 600; font-size: 13px; }
+
+  .exc-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    margin-bottom: 14px;
+  }
+  .exc-form .campo { flex: 1 1 150px; min-width: 130px; margin: 0; }
+  .exc-form .campo label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; display: block; }
+  .exc-form .form-control { width: 100%; }
+
+  .exc-table-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+  .exc-table { width: 100%; border-collapse: collapse; background: var(--surface); min-width: 620px; }
+  .exc-table thead th {
+    position: sticky; top: 0;
+    background: var(--table-head-bg); color: var(--table-head-fg);
+    padding: 9px 12px; font-size: 13px; text-align: left; white-space: nowrap; z-index: 2;
+  }
+  .exc-table td { padding: 9px 12px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .exc-table tbody tr:nth-child(odd) td { background: var(--surface-2); }
+  .exc-empty td { text-align: center; color: var(--muted); font-style: italic; padding: 20px; }
+
+  .flag-off {
+    background: var(--fair-wash, #f7efe0);
+    border: 1px solid var(--warn);
+    color: var(--warn);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13.5px;
+    margin-bottom: 18px;
+  }
+  @media (max-width: 700px){ .exc-table td, .exc-table th { white-space: nowrap; } }
+</style>
+
+<div class="main-content">
+  <h1>Exceções</h1>
+
+  <% if (typeof erro !== "undefined" && erro) { %>
+    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+      Não foi possível carregar as exceções agora — a planilha está indisponível. Recarregue em instantes.
+    </div>
+  <% } %>
+
+  <% if (!excecoesAtivas) { %>
+    <div class="flag-off">
+      Modo somente leitura — as ações estão desativadas. Ligue <code>EXCECOES_ATIVAS=1</code> na Vercel para habilitar o registro.
+    </div>
+  <% } %>
+
+  <!-- ============ PERDIDAS ============ -->
+  <div class="exc-section">
+    <h2>Perdidas <span class="exc-count">(<%= perdidas.length %>)</span></h2>
+    <div class="exc-sub">Registrar máquina perdida grava em PERDIDAS e tira das contagens (status "Perdida").</div>
+
+    <form class="exc-form" data-acao="perdida">
+      <div class="campo"><label>Serial</label><input class="form-control" name="serial" placeholder="Ex: PBA12345" required></div>
+      <div class="campo"><label>Responsável</label><input class="form-control" name="responsavel" placeholder="Ex: Fred"></div>
+      <div class="campo" style="flex:2 1 220px"><label>Observação</label><input class="form-control" name="observacao" placeholder="Opcional"></div>
+      <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Marcar como perdida</button>
+    </form>
+
+    <div class="exc-table-wrap">
+      <table class="exc-table">
+        <thead><tr><th>Serial</th><th>Status</th><th>Responsável</th><th>Evento</th><th>Obs</th></tr></thead>
+        <tbody>
+          <% perdidas.forEach(p => { %>
+            <tr>
+              <td><%= p.serial %></td><td><%= p.status %></td><td><%= p.responsavel %></td>
+              <td><%= p.idEvento %><%= p.nomeEvento && p.nomeEvento !== '-' ? ' — ' + p.nomeEvento : '' %></td>
+              <td><%= p.observacao %></td>
+            </tr>
+          <% }) %>
+          <% if (perdidas.length === 0) { %><tr class="exc-empty"><td colspan="5">Nenhuma máquina perdida registrada.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TROCAS ============ -->
+  <div class="exc-section">
+    <h2>Trocas <span class="exc-count">(<%= trocas.length %>)</span></h2>
+    <div class="exc-sub">Relaciona a máquina com defeito à substituta. A defeituosa sai das contagens (status "Defeito").</div>
+
+    <form class="exc-form" data-acao="troca">
+      <div class="campo"><label>Com defeito</label><input class="form-control" name="serialDefeito" placeholder="Serial defeituoso" required></div>
+      <div class="campo"><label>Problema</label><input class="form-control" name="problema" placeholder="Ex: Sem internet"></div>
+      <div class="campo"><label>Local</label><input class="form-control" name="local" placeholder="Ex: Estoque RJ"></div>
+      <div class="campo"><label>Nova (substituta)</label><input class="form-control" name="serialNova" placeholder="Serial novo (opcional)"></div>
+      <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Registrar troca</button>
+    </form>
+
+    <div class="exc-table-wrap">
+      <table class="exc-table">
+        <thead><tr><th>Com defeito</th><th>Problema</th><th>Local</th><th>Nova</th></tr></thead>
+        <tbody>
+          <% trocas.forEach(t => { %>
+            <tr><td><%= t.defeito %></td><td><%= t.problema %></td><td><%= t.local %></td><td><%= t.nova %></td></tr>
+          <% }) %>
+          <% if (trocas.length === 0) { %><tr class="exc-empty"><td colspan="4">Nenhuma troca registrada.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ LOCALIZAR ============ -->
+  <div class="exc-section">
+    <h2>A localizar <span class="exc-count">(<%= localizar.length %>)</span></h2>
+    <div class="exc-sub">Máquinas que precisam ser localizadas. Marca o status "Localizar" na CONTROLE.</div>
+
+    <form class="exc-form" data-acao="localizar">
+      <div class="campo"><label>Serial</label><input class="form-control" name="serial" placeholder="Ex: PBA12345" required></div>
+      <div class="campo" style="flex:2 1 260px"><label>Referência (onde deveria estar)</label><input class="form-control" name="referencia" placeholder="Ex: era pra estar no Estoque SP"></div>
+      <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Enviar para localizar</button>
+    </form>
+
+    <div class="exc-table-wrap">
+      <table class="exc-table">
+        <thead><tr><th>Serial</th><th>Modelo</th><th>Referência</th></tr></thead>
+        <tbody>
+          <% localizar.forEach(l => { %>
+            <tr><td><%= l.serial %></td><td><%= l.modelo %></td><td><%= l.referencia %></td></tr>
+          <% }) %>
+          <% if (localizar.length === 0) { %><tr class="exc-empty"><td colspan="3">Nenhuma máquina a localizar.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // rotas por ação
+  const ROTA = { perdida: "/api/perdida", troca: "/api/troca", localizar: "/api/localizar" };
+
+  document.querySelectorAll("form.exc-form").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const acao = form.dataset.acao;
+      const btn = form.querySelector("button[type=submit]");
+      const payload = {};
+      form.querySelectorAll("input[name]").forEach(i => { payload[i.name] = i.value.trim(); });
+
+      btn.disabled = true;
+      try {
+        const r = await fetch(ROTA[acao], {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (data.ok) {
+          showToast("Registrado");
+          setTimeout(() => location.reload(), 900);
+        } else {
+          showToast(data.msg || "Não foi possível registrar.", "err");
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showToast("Erro de rede.", "err");
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

@@ -78,7 +78,7 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
-### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4 (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`)
+### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4/5 + Ajustes (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`, `feat/ajustes-ux`, `feat/onda5-excecoes`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
 - **Onda 0 — blindagem:**
@@ -111,7 +111,12 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   - **Toast** não-bloqueante (`showToast` no footer + `.toast` no CSS) substitui `alert()`: Salvar status agora atualiza a linha **in-place** (preserva filtros, sem `location.reload`); Envio mostra toast.
   - **Empty-state** na tabela Máquinas (sem dados / filtro sem resultado) + contador correto no load.
   - ✅ Verificado no navegador (DOM): 552 células Obs, 5 badges "proc" (= 5 Processando no banco), empty-state ao filtrar 0, toast ok(verde)/err(vermelho). (Screenshots do preview travaram — problema do renderer, não do código.)
-- **DEFERIDO (ondas seguintes / decisão):** scanner de código de barras; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). Migração Neon, telas de exceção: ondas 5-6.
+- **Onda 5 — telas de exceção (branch `feat/onda5-excecoes`, stacked sobre ajustes):**
+  - `src/excecoes.js` — repositório das 3 abas antes ignoradas (PERDIDAS/TROCAS/LOCALIZAR): leituras (`getPerdidas/getTrocas/getLocalizar`) + escritas (`marcarPerdida` → append PERDIDAS + status "Perdida" na CONTROLE, com rollback; `registrarTroca` → append TROCAS + status "Defeito"; `enviarParaLocalizar` → append LOCALIZAR + status "Localizar"). Módulo isolado p/ virar adapter Neon depois.
+  - Rota + tela `/excecoes` (menu "Exceções"): 3 seções com lista + formulário de ação, tokenizada no design system.
+  - **Endpoints gated pelo flag `EXCECOES_ATIVAS`** (`POST /api/perdida|troca|localizar`): default OFF → **403** (não grava nada); UI mostra "somente leitura" e botões desabilitados. **O Marcio liga o flag na Vercel quando quiser validar com dados reais.** Escrever "Perdida"/"Defeito"/"Localizar" no status tira a máquina das contagens (corrige "perdida contava como disponível").
+  - ✅ Verificado no navegador: leituras 47/26/15 (dados reais), tela renderiza, gate 403 nos 3 endpoints com flag off. Escritas verificadas por code-review (gated, sem tocar dados reais). ⚠️ **Possível gotcha:** se as abas tiverem "intervalo protegido" no Sheets, a SA `maquinas-dashboard@…` precisa entrar nos editores da proteção — descobrir ao ligar o flag.
+- **DEFERIDO (ondas seguintes / decisão):** ação "marcar perdida/localizar" contextual na tela Máquinas (hoje só na /excecoes); scanner de código de barras; self-host da fonte Inter (woff2); gravar datas como `RAW` (A2 — precisa smoke test do GAS bound); ping Slack no erro de leitura (precisa webhook). **Onda 6 (migração Neon):** precisa das decisões (clonar GAS bound, curadoria dos dados-lixo).
 - Testes **13/13** verdes, lint limpo. Smoke: boot OK (login 200, rota protegida 302, body vazio 400, CSRF 403) + leitura end-to-end na planilha real (553 máq, 1394 mov, resumo coerente). Onda 3: `GET /api/evento/:id` validado read-only (evento real encontrado, inexistente→null) + boot com rotas novas registradas/protegidas. ⚠️ **Verificação VISUAL das telas logadas (KPIs clicáveis, eco/cadastro no Envio, data default) pendente — o Marcio confere no preview/prod.**
 
 ### 2026-06-14 — migração para Vercel (serverless) — PR #1, branch `feat/deploy-vercel`
