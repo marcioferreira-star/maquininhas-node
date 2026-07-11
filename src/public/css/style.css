@@ -237,34 +237,8 @@ h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--text); margin-botto
   overflow-x: auto;
 }
 
-table {
-  width: 100%;
-  background: var(--surface);
-  border-radius: 10px;
-  border-collapse: collapse;
-  overflow: hidden;
-}
-
-th, td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-  vertical-align: middle;
-  color: var(--text);
-}
-
-th {
-  background: var(--table-head-bg);
-  color: var(--table-head-fg);
-}
-
-/* Linha de estado vazio dentro de uma tabela */
-.empty-row td {
-  text-align: center;
-  color: var(--muted);
-  padding: 26px 12px;
-  font-style: italic;
-}
+/* Tabelas: ver o sistema único .tbl / .table-scroll (Onda 0). As rules bare
+   table/th,td e .empty-row foram removidas na limpeza da Onda 6 (zero uso). */
 
 /* =============================================== */
 /* === SISTEMA DE BOTÕES === */
@@ -297,18 +271,6 @@ th {
 .btn-danger { background: var(--danger); color: #fff; }
 .btn-danger:hover { background: var(--danger-hover); }
 
-/* Compat: os botões antigos herdam o visual do sistema até serem migrados. */
-.btn-azul, .btn-registrar {
-  background-color: var(--brand);
-  color: var(--brand-contrast);
-  border: none;
-  border-radius: 8px;
-  padding: 9px 16px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background .18s;
-}
-.btn-azul:hover, .btn-registrar:hover { background-color: var(--brand-hover); }
 
 /* =============================================== */
 /* === FORM (inputs base) === */
@@ -332,14 +294,6 @@ th {
   box-shadow: 0 0 0 3px rgba(255, 39, 26, .15);
 }
 
-/* Botão enviar full-width (tela de envio) */
-.btn-registrar {
-  width: 100%;
-  padding: 14px;
-  font-size: 18px;
-  border-radius: 8px;
-  margin-top: 15px;
-}
 
 /* =============================================== */
 /* === FOOTER === */
@@ -352,35 +306,6 @@ footer {
   border-top: 1px solid var(--border);
 }
 
-/* =============================================== */
-/* === LISTA / SELECIONADAS (tela de envio) === */
-/* =============================================== */
-.selecionadas-box {
-  flex: 1;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  border-radius: 8px;
-  padding: 6px;
-}
-.selecionadas-box ul { list-style: none; padding: 0; }
-.selecionadas-box li {
-  background: var(--surface);
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  border: 1px solid var(--border);
-  gap: 10px;
-  min-width: 0;
-}
-.selecionadas-box li span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* =============================================== */
 /* === TOAST (feedback não-bloqueante) === */
