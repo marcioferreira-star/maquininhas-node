@@ -211,6 +211,7 @@
         '<button type="button" class="scan-torch" hidden>Luz</button>' +
         '<div class="scan-toast" hidden></div>' +
         '<div class="scan-erro" hidden></div>' +
+        '<div class="scan-debug" hidden></div>' +
       '</div>' +
       '<div class="scan-ctl" hidden><span>Zoom</span><input type="range" class="scan-zoom" aria-label="Zoom"></div>' +
       '<div class="scan-seq"><div class="scan-seq-head">Bipadas <b class="scan-seq-n">0</b></div><div class="scan-seq-list"></div></div>' +
@@ -220,7 +221,10 @@
     var $ = function (sel) { return dlg.querySelector(sel); };
     $(".scan-title").textContent = titulo;
     var video = $("video");
-    var elTorch = $(".scan-torch"), elToast = $(".scan-toast"), elErro = $(".scan-erro");
+    var elTorch = $(".scan-torch"), elToast = $(".scan-toast"), elErro = $(".scan-erro"), elDebug = $(".scan-debug");
+    // HUD de medição (só no celular, onde não há console): ?scandebug=1 na URL ou localStorage scan_debug=1
+    var debugAtivo = false;
+    try { debugAtivo = /[?&]scandebug=1/.test(location.search) || localStorage.getItem("scan_debug") === "1"; } catch {}
     var elCtl = $(".scan-ctl"), elZoom = $(".scan-zoom"), elSeqN = $(".scan-seq-n"), elSeqList = $(".scan-seq-list");
     var bipadas = 0;
 
@@ -260,6 +264,7 @@
     var parar = false, timer = null, rvfcId = 0, inFlight = false;
     var stream = null, track = null, reabrindo = false, det = null;
     var consenso = criarConsenso(), gate = criarGateNitidez(), escal = criarEscalonador(), lumaMedia = criarMediaMovel(10);
+    var msDecode = criarMediaMovel(30), frames = 0, decodes = 0, ultimoHud = 0;   // instrumentação do HUD
     var expo = { caps: null, atual: 0, ultimo: 0 };
     var canvas = document.createElement("canvas");
     var ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -378,6 +383,7 @@
       try {
         var crop = calcularCrop(video.videoWidth, video.videoHeight, video.clientWidth || video.videoWidth, video.clientHeight || video.videoHeight);
         if (crop && crop.sw > 0 && crop.sh > 0) {
+          frames++;
           var modo = det.fonte === "wasm" ? escal.modo() : "rapido";
           var larguraMax = det.fonte === "nativo" || modo === "caprichado" ? 1024 : 720;
           var destW = Math.min(Math.round(crop.sw), larguraMax);
@@ -390,8 +396,11 @@
           var gd = gate.decidir(m.nitidez);
           if (gd.refocar) reKickFoco();
           if (gd.decodificar) {
+            decodes++;
+            var t0 = performance.now();
             var codes = [];
             try { codes = await det.detectar(canvas, img, modo); } catch { codes = []; }
+            msDecode.add(performance.now() - t0);
             if (det.fonte === "wasm") escal.registrar(codes.some(Boolean));
             if (!parar) {
               var aceitos = consenso.registrar(codes, Date.now());
@@ -399,6 +408,15 @@
             }
           }
           ajustarExposicao(lumaMedia.media());
+          if (debugAtivo) {
+            var ag = performance.now();
+            if (ag - ultimoHud > 500) {
+              ultimoHud = ag;
+              var pulados = frames ? Math.round(100 * (frames - decodes) / frames) : 0;
+              elDebug.hidden = false;
+              elDebug.textContent = det.fonte + (modo === "caprichado" ? "+" : "") + " " + msDecode.media().toFixed(0) + "ms · nit " + m.nitidez.toFixed(0) + " · luz " + m.media.toFixed(0) + " · gate " + pulados + "%";
+            }
+          }
         }
       } catch {}
       inFlight = false;

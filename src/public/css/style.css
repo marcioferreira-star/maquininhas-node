@@ -533,3 +533,4 @@ a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border
   .scan-dialog { max-width: 100vw; width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
   .scan-view { aspect-ratio: auto; flex: 1 1 auto; min-height: 0; }
 }
+.scan-debug { position: absolute; left: 8px; top: 8px; padding: 4px 8px; border-radius: 6px; font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.4; background: rgba(0,0,0,.72); color: #7fd6a0; pointer-events: none; z-index: 3; }
