@@ -2,8 +2,9 @@
 -- maquininhas-node — Schema Postgres/Neon (Onda 6, migração Sheets→Neon)
 -- ----------------------------------------------------------------------------
 -- Materializa o Plano B da auditoria (docs/AUDITORIA-2026-07-10.md).
--- Ainda NÃO aplicado — falta o projeto Neon + DATABASE_URL. Aplicar num branch
--- Neon limpo (fase 1). A curadoria dos dados (fase 2) usa o schema `staging`.
+-- ✅ APLICADO no Neon (projeto maquininhas-node, us-east-1). Este é o BOOTSTRAP v1;
+-- os deltas incrementais vivem em db/migrations/ (ex.: 2026-07-11-v2-orfaos-* — Fase 0
+-- do cutover, tb auto-aplicado pelo sync via MIGRATION_V2_DDL). A curadoria usa `staging`.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
