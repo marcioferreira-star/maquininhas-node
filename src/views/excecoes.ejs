@@ -2,74 +2,33 @@
 <%- include('partials/sidebar', { page: 'excecoes', user }) %>
 
 <style>
-  .exc-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 22px;
-    box-shadow: var(--shadow);
-  }
-  .exc-section h2 {
-    font-size: 18px;
-    margin: 0 0 4px 0;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .exc-sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
-  .exc-count { color: var(--muted); font-weight: 600; font-size: 13px; }
+  /* usa .field/.control/.tbl/.table-scroll/.alert/.empty do design system (Onda 0) */
+  .exc-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-5); box-shadow: var(--shadow); }
+  .exc-section h2 { font-size: var(--fs-lg); margin: 0 0 4px 0; }
+  .exc-sub { color: var(--muted); font-size: var(--fs-sm); margin-bottom: var(--space-3); }
+  .exc-count { color: var(--muted); font-weight: 600; font-size: var(--fs-sm); }
 
-  .exc-form {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: flex-end;
-    padding: 12px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--surface-2);
-    margin-bottom: 14px;
-  }
-  .exc-form .campo { flex: 1 1 150px; min-width: 130px; margin: 0; }
-  .exc-form .campo label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; display: block; }
-  .exc-form .form-control { width: 100%; }
+  /* form de ação: .field/.control em linha, botão alinhado embaixo */
+  .exc-form { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; padding: var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); margin-bottom: var(--space-3); }
+  .exc-form .field { flex: 1 1 150px; min-width: 130px; }
+  .exc-form .btn { flex: 0 0 auto; }
 
-  .exc-table-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
-  .exc-table { width: 100%; border-collapse: collapse; background: var(--surface); min-width: 620px; }
-  .exc-table thead th {
-    position: sticky; top: 0;
-    background: var(--table-head-bg); color: var(--table-head-fg);
-    padding: 9px 12px; font-size: 13px; text-align: left; white-space: nowrap; z-index: 2;
-  }
-  .exc-table td { padding: 9px 12px; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); white-space: nowrap; }
-  .exc-table tbody tr:nth-child(odd) td { background: var(--surface-2); }
-  .exc-empty td { text-align: center; color: var(--muted); font-style: italic; padding: 20px; }
-
-  .flag-off {
-    background: var(--fair-wash, #f7efe0);
-    border: 1px solid var(--warn);
-    color: var(--warn);
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 13.5px;
-    margin-bottom: 18px;
-  }
-  @media (max-width: 700px){ .exc-table td, .exc-table th { white-space: nowrap; } }
+  /* tabelas: .tbl da fundação; scroll interno menor (listas curtas) */
+  .exc-section .table-scroll { max-height: 340px; }
+  .exc-section .tbl { min-width: 620px; }
 </style>
 
 <div class="main-content">
   <h1>Exceções</h1>
 
   <% if (typeof erro !== "undefined" && erro) { %>
-    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+    <div class="alert alert--danger">
       Não foi possível carregar as exceções agora — a planilha está indisponível. Recarregue em instantes.
     </div>
   <% } %>
 
   <% if (!excecoesAtivas) { %>
-    <div class="flag-off">
+    <div class="alert alert--warn">
       Modo somente leitura — as ações estão desativadas. Ligue <code>EXCECOES_ATIVAS=1</code> na Vercel para habilitar o registro.
     </div>
   <% } %>
@@ -80,14 +39,14 @@
     <div class="exc-sub">Registrar máquina perdida grava em PERDIDAS e tira das contagens (status "Perdida").</div>
 
     <form class="exc-form" data-acao="perdida">
-      <div class="campo"><label>Serial</label><input class="form-control" name="serial" placeholder="Ex: PBA12345" required></div>
-      <div class="campo"><label>Responsável</label><input class="form-control" name="responsavel" placeholder="Ex: Fred"></div>
-      <div class="campo" style="flex:2 1 220px"><label>Observação</label><input class="form-control" name="observacao" placeholder="Opcional"></div>
+      <div class="field"><label>Serial</label><input class="control" name="serial" placeholder="Ex: PBA12345" required></div>
+      <div class="field"><label>Responsável</label><input class="control" name="responsavel" placeholder="Ex: Fred"></div>
+      <div class="field" style="flex:2 1 220px"><label>Observação</label><input class="control" name="observacao" placeholder="Opcional"></div>
       <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Marcar como perdida</button>
     </form>
 
-    <div class="exc-table-wrap">
-      <table class="exc-table">
+    <div class="table-scroll">
+      <table class="tbl">
         <thead><tr><th>Serial</th><th>Status</th><th>Responsável</th><th>Evento</th><th>Obs</th></tr></thead>
         <tbody>
           <% perdidas.forEach(p => { %>
@@ -97,7 +56,7 @@
               <td><%= p.observacao %></td>
             </tr>
           <% }) %>
-          <% if (perdidas.length === 0) { %><tr class="exc-empty"><td colspan="5">Nenhuma máquina perdida registrada.</td></tr><% } %>
+          <% if (perdidas.length === 0) { %><tr><td colspan="5" class="empty">Nenhuma máquina perdida registrada.</td></tr><% } %>
         </tbody>
       </table>
     </div>
@@ -109,21 +68,21 @@
     <div class="exc-sub">Relaciona a máquina com defeito à substituta. A defeituosa sai das contagens (status "Defeito").</div>
 
     <form class="exc-form" data-acao="troca">
-      <div class="campo"><label>Com defeito</label><input class="form-control" name="serialDefeito" placeholder="Serial defeituoso" required></div>
-      <div class="campo"><label>Problema</label><input class="form-control" name="problema" placeholder="Ex: Sem internet"></div>
-      <div class="campo"><label>Local</label><input class="form-control" name="local" placeholder="Ex: Estoque RJ"></div>
-      <div class="campo"><label>Nova (substituta)</label><input class="form-control" name="serialNova" placeholder="Serial novo (opcional)"></div>
+      <div class="field"><label>Com defeito</label><input class="control" name="serialDefeito" placeholder="Serial defeituoso" required></div>
+      <div class="field"><label>Problema</label><input class="control" name="problema" placeholder="Ex: Sem internet"></div>
+      <div class="field"><label>Local</label><input class="control" name="local" placeholder="Ex: Estoque RJ"></div>
+      <div class="field"><label>Nova (substituta)</label><input class="control" name="serialNova" placeholder="Serial novo (opcional)"></div>
       <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Registrar troca</button>
     </form>
 
-    <div class="exc-table-wrap">
-      <table class="exc-table">
+    <div class="table-scroll">
+      <table class="tbl">
         <thead><tr><th>Com defeito</th><th>Problema</th><th>Local</th><th>Nova</th></tr></thead>
         <tbody>
           <% trocas.forEach(t => { %>
             <tr><td><%= t.defeito %></td><td><%= t.problema %></td><td><%= t.local %></td><td><%= t.nova %></td></tr>
           <% }) %>
-          <% if (trocas.length === 0) { %><tr class="exc-empty"><td colspan="4">Nenhuma troca registrada.</td></tr><% } %>
+          <% if (trocas.length === 0) { %><tr><td colspan="4" class="empty">Nenhuma troca registrada.</td></tr><% } %>
         </tbody>
       </table>
     </div>
@@ -135,19 +94,19 @@
     <div class="exc-sub">Máquinas que precisam ser localizadas. Marca o status "Localizar" na CONTROLE.</div>
 
     <form class="exc-form" data-acao="localizar">
-      <div class="campo"><label>Serial</label><input class="form-control" name="serial" placeholder="Ex: PBA12345" required></div>
-      <div class="campo" style="flex:2 1 260px"><label>Referência (onde deveria estar)</label><input class="form-control" name="referencia" placeholder="Ex: era pra estar no Estoque SP"></div>
+      <div class="field"><label>Serial</label><input class="control" name="serial" placeholder="Ex: PBA12345" required></div>
+      <div class="field" style="flex:2 1 260px"><label>Referência (onde deveria estar)</label><input class="control" name="referencia" placeholder="Ex: era pra estar no Estoque SP"></div>
       <button type="submit" class="btn btn-primary" <%= excecoesAtivas ? '' : 'disabled' %>>Enviar para localizar</button>
     </form>
 
-    <div class="exc-table-wrap">
-      <table class="exc-table">
+    <div class="table-scroll">
+      <table class="tbl">
         <thead><tr><th>Serial</th><th>Modelo</th><th>Referência</th></tr></thead>
         <tbody>
           <% localizar.forEach(l => { %>
             <tr><td><%= l.serial %></td><td><%= l.modelo %></td><td><%= l.referencia %></td></tr>
           <% }) %>
-          <% if (localizar.length === 0) { %><tr class="exc-empty"><td colspan="3">Nenhuma máquina a localizar.</td></tr><% } %>
+          <% if (localizar.length === 0) { %><tr><td colspan="3" class="empty">Nenhuma máquina a localizar.</td></tr><% } %>
         </tbody>
       </table>
     </div>
