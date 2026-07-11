@@ -3,8 +3,9 @@
 
 <style>
   /* usa .toolbar/.field/.control/.tbl/.pill do design system (Onda 0) */
-  /* tabela preenche a altura disponível (sem buraco embaixo) — escopo só desta tela */
-  .main-content { display: flex; flex-direction: column; }
+  /* tabela preenche a altura disponível (sem buraco embaixo) — escopo só desta tela.
+     max-height limita o container flex → a .table-scroll rola internamente (sticky mantém). */
+  .main-content { display: flex; flex-direction: column; max-height: calc(100vh - 60px); }
   .table-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
   #contador { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); color: var(--muted); }
   .tbl { min-width: 1080px; }                 /* desktop: rola no .table-scroll */
