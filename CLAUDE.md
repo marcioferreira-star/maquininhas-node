@@ -103,6 +103,11 @@ política única e cadastro de evento validados ao vivo — ver memória `maquin
   (Estoque→"-") **e** o filtro de retorno só vale p/ "Em Uso". (b) linhas **alternadas (zebra)** +
   hover, igual ao Histórico. (c) **Nome Evento** trunca com reticências (max-width 220px) + `title`
   com nome completo no hover (mesma lógica da Obs) → larguras mais ajustadas.
+  (d) **Cabeçalho fixo (sticky)** na tabela Máquinas: o `thead th` tinha `position:sticky`
+  mas não grudava — causa era o **`overflow:hidden` global na `<table>`** (style.css, p/ clip do
+  border-radius) + `border-collapse:collapse`. Fix: na tela, `border-collapse:separate`+`border-spacing:0`,
+  `overflow:visible` na table e `border-bottom` no th. (Lição: **`position:sticky` quebra se um ancestral
+  entre o elemento e o container de scroll tiver `overflow≠visible` ou `border-collapse:collapse`.**)
 - Testes **14/14**, lint limpo. ⚠️ **Verificação visual da tela logada pendente — o Marcio confere no preview.**
 
 ### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4/5 + Ajustes (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`, `feat/ajustes-ux`, `feat/onda5-excecoes`)
