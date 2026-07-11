@@ -1,0 +1,3 @@
+Inter (subset latin, variable) — SIL Open Font License 1.1
+Fonte: https://github.com/rsms/inter (via @fontsource-variable/inter)
+Arquivo: inter-variable-latin.woff2

@@ -47,6 +47,44 @@
     }, 2600);
   }
 
+  // uiConfirm(msg) → Promise<boolean> e uiPrompt(msg, valor) → Promise<string|null>.
+  // Modal sobre <dialog> nativo (fallback pro confirm/prompt nativo se indisponível).
+  function _uiDialog(opts){
+    return new Promise(function(resolve){
+      if (!window.HTMLDialogElement){
+        resolve(opts.prompt ? window.prompt(opts.msg, opts.value || '') : window.confirm(opts.msg));
+        return;
+      }
+      var dlg = document.createElement('dialog');
+      dlg.className = 'dialog';
+      dlg.innerHTML =
+        '<form method="dialog" class="dialog__body">' +
+          '<div class="dialog__msg"></div>' +
+          (opts.prompt ? '<input class="control" id="_uiIn" autocomplete="off" />' : '') +
+          '<div class="dialog__foot">' +
+            '<button class="btn btn-secondary btn-sm" value="cancel"></button>' +
+            '<button class="btn btn-primary btn-sm" value="ok"></button>' +
+          '</div>' +
+        '</form>';
+      dlg.querySelector('.dialog__msg').textContent = opts.msg;
+      dlg.querySelector('button[value="cancel"]').textContent = 'Cancelar';
+      dlg.querySelector('button[value="ok"]').textContent = opts.ok || 'OK';
+      var inEl = dlg.querySelector('#_uiIn');
+      if (inEl && opts.value) inEl.value = opts.value;
+      document.body.appendChild(dlg);
+      dlg.addEventListener('close', function(){
+        var okr = dlg.returnValue === 'ok';
+        var val = inEl ? inEl.value : null;
+        dlg.remove();
+        resolve(opts.prompt ? (okr ? val : null) : okr);
+      });
+      dlg.showModal();
+      if (inEl) inEl.focus();
+    });
+  }
+  function uiConfirm(msg, okLabel){ return _uiDialog({ msg: msg, ok: okLabel }); }
+  function uiPrompt(msg, value, okLabel){ return _uiDialog({ msg: msg, value: value, ok: okLabel, prompt: true }); }
+
   // Sincronização manual (planilha → espelho Neon) — botão no rodapé da sidebar.
   // Global (a sidebar está em todas as telas).
   (function syncUI(){

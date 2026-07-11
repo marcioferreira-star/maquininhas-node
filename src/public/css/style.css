@@ -1,4 +1,15 @@
 /* =====================================================================
+   FONTE — Inter self-hosted (variável, subset latin). Sem request a terceiro.
+===================================================================== */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable-latin.woff2") format("woff2");
+}
+
+/* =====================================================================
    DESIGN TOKENS — identidade Ingresse (Blood Orange + preto) + dark mode
    Dark mode via localStorage/data-theme (o pre-paint script fica no header.ejs).
 ===================================================================== */
@@ -35,27 +46,36 @@
 
   --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
+  /* --- FUNDAÇÃO (Onda 0) — aditivo, convive com os tokens acima --- */
+  /* espaçamento (grade 4px) */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+  /* raios */
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 999px;
+  /* escala tipográfica */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px;
+  --fs-lg: 16px; --fs-xl: 20px; --fs-2xl: 26px; --fs-3xl: 34px;
+  --lh-tight: 1.2; --lh-normal: 1.5;
+  /* extras */
+  --text-subtle: #8890a0;
+  --border-strong: #cfd5df;
+  --brand-soft: rgba(255, 39, 26, .10);
+  --focus-ring: 0 0 0 3px rgba(255, 39, 26, .25);
+  /* pills — 6 estados, texto escuro sobre tinta clara (AA folgado) */
+  --pill-danger-bg: #FDEBE9; --pill-danger-fg: #A11409; --pill-danger-dot: #d9342a;
+  --pill-warn-bg:   #FBEEC2; --pill-warn-fg:   #6B4E00; --pill-warn-dot:   #b58900;
+  --pill-ok-bg:     #E1F4E8; --pill-ok-fg:     #136139; --pill-ok-dot:     #1f9d57;
+  --pill-info-bg:   #E5EFFB; --pill-info-fg:   #1B4C86; --pill-info-dot:   #2f74c9;
+  --pill-neutral-bg:#E9ECF1; --pill-neutral-fg:#3a4250; --pill-neutral-dot:#6b7280;
+  --pill-muted-bg:  #ECEEF2; --pill-muted-fg:  #6b7280; --pill-muted-dot:  #9aa1ab;
+
   /* faz date-picker, scrollbars e controles nativos seguirem o tema */
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --bg: #15171b;
-    --surface: #1e2126;
-    --surface-2: #262a31;
-    --surface-3: #2e333b;
-    --border: #333941;
-    --text: #e6e8eb;
-    --muted: #9aa1ab;
-    --shadow: 0 2px 8px rgba(0, 0, 0, .35);
-    --shadow-lg: 0 8px 22px rgba(0, 0, 0, .45);
-    --sidebar-bg: #0f1114;
-    --table-head-bg: #262a31;
-    --info: #6ea8dc;
-  }
-}
+/* Dark mode em BLOCO ÚNICO — o pre-paint (header.ejs/login.ejs) sempre seta
+   data-theme antes do paint, então não é preciso o @media prefers-color-scheme. */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #15171b;
@@ -70,6 +90,15 @@
   --sidebar-bg: #0f1114;
   --table-head-bg: #262a31;
   --info: #6ea8dc;
+  /* fundação — dark */
+  --text-subtle: #7d8694;
+  --border-strong: #444b56;
+  --pill-danger-bg: #3a1613; --pill-danger-fg: #ff9c92; --pill-danger-dot: #ff6b5e;
+  --pill-warn-bg:   #332a0d; --pill-warn-fg:   #ecc65a; --pill-warn-dot:   #d9a520;
+  --pill-ok-bg:     #12301f; --pill-ok-fg:     #7fd6a0; --pill-ok-dot:     #34c47a;
+  --pill-info-bg:   #14263c; --pill-info-fg:   #8fb8ec; --pill-info-dot:   #5b93da;
+  --pill-neutral-bg:#2a2f37; --pill-neutral-fg:#b8c0cc; --pill-neutral-dot:#8891a0;
+  --pill-muted-bg:  #262a31; --pill-muted-fg:  #9aa1ab; --pill-muted-dot:  #7d8694;
 }
 
 /* =============================================== */
@@ -383,26 +412,99 @@ footer {
 .toast.ok { background: var(--ok); }
 .toast.err { background: var(--danger); }
 
-/* badge "em processamento" na tela de máquinas */
-.badge-proc {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--warn);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  vertical-align: middle;
+/* =====================================================================
+   FUNDAÇÃO (Onda 0) — componentes únicos, aditivos (ninguém consome ainda;
+   cada onda migra uma tela; o legado sai na onda final).
+===================================================================== */
+
+/* Foco visível global — cobre todos os controles de uma vez (inclui os bespoke) */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
 }
+
+/* Botões — variantes extras do sistema .btn */
+.btn-ghost { background: transparent; color: var(--text); border-color: transparent; }
+.btn-ghost:hover { background: var(--surface-2); }
+.btn-sm { padding: 5px 10px; font-size: var(--fs-md); }
+
+/* Pills — 6 estados semânticos, AA nos dois temas */
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 9px 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs); font-weight: 600; line-height: 1.4;
+  white-space: nowrap;
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--_dot, currentColor); }
+.pill--danger  { background: var(--pill-danger-bg);  color: var(--pill-danger-fg);  --_dot: var(--pill-danger-dot); }
+.pill--warn    { background: var(--pill-warn-bg);    color: var(--pill-warn-fg);    --_dot: var(--pill-warn-dot); }
+.pill--ok      { background: var(--pill-ok-bg);      color: var(--pill-ok-fg);      --_dot: var(--pill-ok-dot); }
+.pill--info    { background: var(--pill-info-bg);    color: var(--pill-info-fg);    --_dot: var(--pill-info-dot); }
+.pill--neutral { background: var(--pill-neutral-bg); color: var(--pill-neutral-fg); --_dot: var(--pill-neutral-dot); }
+.pill--muted   { background: var(--pill-muted-bg);   color: var(--pill-muted-fg);   --_dot: var(--pill-muted-dot); }
+
+/* Tabela única — sticky header preto, zebra, densa (border-collapse:separate +
+   sem overflow:hidden ancestral = sticky funciona, lição do fix de 10/07) */
+.table-scroll {
+  overflow: auto; max-height: 68vh;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); font-size: var(--fs-md); }
+.tbl thead th {
+  position: sticky; top: 0; z-index: 5;
+  background: var(--table-head-bg); color: var(--table-head-fg);
+  text-align: left; font-weight: 600; font-size: var(--fs-sm);
+  text-transform: uppercase; letter-spacing: .03em;
+  padding: var(--space-2) var(--space-3); white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+.tbl tbody td { padding: 7px var(--space-3); border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; white-space: nowrap; }
+.tbl tbody tr:nth-child(odd) td { background: var(--surface-2); }
+.tbl tbody tr:hover td { background: var(--surface-3); }
+
+/* Toolbar de filtros — label em cima, controles 34px */
+.toolbar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; margin-bottom: var(--space-4); }
+.field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; flex: 1 1 160px; }
+.field > label { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.control {
+  height: 34px; padding: 0 var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+  font-size: var(--fs-base); font-family: var(--font);
+}
+.control::placeholder { color: var(--text-subtle); }
+.control:focus { outline: none; border-color: var(--brand); box-shadow: var(--focus-ring); }
+textarea.control { height: auto; min-height: 76px; padding: var(--space-2) var(--space-3); resize: vertical; }
+
+/* Painel / empty-state / cards mobile / banner */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); }
+.empty { text-align: center; color: var(--muted); padding: var(--space-8) var(--space-4); font-size: var(--fs-base); }
+.card-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.mcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); }
+.alert {
+  display: flex; gap: var(--space-2); align-items: flex-start;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm);
+  font-size: var(--fs-base); font-weight: 500; margin-bottom: var(--space-4);
+  border: 1px solid transparent;
+}
+.alert--danger { background: var(--pill-danger-bg); color: var(--pill-danger-fg); border-color: var(--pill-danger-dot); }
+.alert--warn   { background: var(--pill-warn-bg);   color: var(--pill-warn-fg);   border-color: var(--pill-warn-dot); }
+.alert--info   { background: var(--pill-info-bg);   color: var(--pill-info-fg);   border-color: var(--pill-info-dot); }
+
+/* Dialog nativo — base do uiConfirm/uiPrompt */
+dialog.dialog { border: none; border-radius: var(--radius-lg); padding: 0; max-width: min(420px, 92vw); width: 100%; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); }
+dialog.dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.dialog__body { padding: var(--space-5); }
+.dialog__msg { font-size: var(--fs-lg); line-height: var(--lh-normal); margin-bottom: var(--space-4); }
+.dialog__foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.dialog__body .control { width: 100%; margin-bottom: var(--space-4); }
 
 /* =============================================== */
 /* === RESPONSIVIDADE === */
 /* =============================================== */
-@media (max-width: 900px) {
-  .campos-final { flex-direction: column; }
-  .observacoes { width: 100%; }
-}
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
 }
