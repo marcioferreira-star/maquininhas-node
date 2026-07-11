@@ -2,128 +2,41 @@
 <%- include('partials/sidebar', { page, user }) %>
 
 <style>
-  .filters-box {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 20px;
-  }
+  /* usa .toolbar/.field/.control/.tbl/.pill do design system (Onda 0) */
+  #contador { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); color: var(--muted); }
+  .tbl { min-width: 1080px; }                 /* desktop: rola no .table-scroll */
+  .tbl .select-status { height: 30px; font-size: var(--fs-md); padding: 0 6px; min-width: 116px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
+  .tbl .btn-salvar.dirty { box-shadow: 0 0 0 2px var(--brand-soft); }
+  .obs-cell span, .nome-cell span { display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 
-  .filters-box input,
-  .filters-box select {
-    height: 38px;
-    padding-left: 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    flex: 1;
-  }
-
-  .btn-limpar, .btn-exportar {
-    height: 38px;
-    padding: 0 18px;
-    border-radius: 8px;
-    cursor: pointer;
-    white-space: nowrap;
-    font-weight: 600;
-  }
-
-  .btn-limpar { background: transparent; color: var(--text); border: 1px solid var(--border); }
-  .btn-limpar:hover { background: var(--surface-2); }
-  .btn-exportar { background: var(--brand); color: #fff; border: none; }
-  .btn-exportar:hover { background: var(--brand-hover); }
-
-  #contador {
-    font-size: 15px;
-    font-weight: bold;
-    margin-bottom: 8px;
-    color: var(--text);
-  }
-
-  .table-wrapper {
-    max-height: 68vh;
-    overflow-y: auto;
-    overflow-x: auto;                /* ✅ scroll horizontal */
-    -webkit-overflow-scrolling: touch;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-  }
-
-  table {
-    width: 100%;
-    min-width: 1080px;               /* ✅ evita esmagar colunas (Situação + Nome Evento) */
-    border-collapse: separate;       /* ✅ 'collapse' quebra o position:sticky do cabeçalho */
-    border-spacing: 0;
-    background: var(--surface);
-    overflow: visible;               /* ✅ sobrescreve o 'overflow:hidden' global que quebra o sticky */
-  }
-
-  /* Pills de Situação (coluna que veio do Histórico) */
-  .pill-sit {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.3;
-    color: #fff;
-    white-space: nowrap;
-  }
-  .pill-sit.atrasado   { background: #d9534f; }
-  .pill-sit.vence      { background: #e0a800; color: #1A1A1A; }
-  .pill-sit.noprazo    { background: #28a745; }
-  .pill-sit.disponivel { background: #5a87c9; }
-  .pill-sit.fixo       { background: #6c757d; }
-  .pill-sit.semdata    { background: #6c757d; }
-
-  thead th {
-    position: sticky;
-    top: 0;
-    background: var(--table-head-bg);
-    color: var(--table-head-fg);
-    padding: 10px;
-    font-size: 14px;
-    z-index: 5;
-    white-space: nowrap;             /* ✅ não quebra letra por letra */
-    border-bottom: 1px solid var(--border); /* separa do corpo (sem o collapse) */
-  }
-
-  tbody td {
-    padding: 10px;
-    background: var(--surface);
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;             /* ✅ não quebra letra por letra */
-  }
-
-  /* linhas alternadas + hover (igual à tabela de Histórico) */
-  tbody tr:nth-child(odd) td { background: var(--surface-2); }
-  tbody tr:hover td          { background: var(--surface-3); }
-
-  .btn-salvar {
-    background: var(--brand);
-    border: none;
-    padding: 6px 14px;
-    color: #fff;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-  }
-  .btn-salvar:hover { background: var(--brand-hover); }
-
-  /* ✅ MOBILE: filtros quebram linha */
-  @media (max-width: 900px){
-    .filters-box{
-      flex-wrap: wrap;
+  /* MOBILE (<=720): a tabela vira CARDS (DOM único — tr vira card, td vira linha rótulo:valor) */
+  @media (max-width: 720px) {
+    .tbl { min-width: 0; }
+    .tbl thead { display: none; }
+    .tbl, .tbl tbody { display: block; }
+    .tbl tbody tr.linha {
+      display: block; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      padding: var(--space-3); margin-bottom: var(--space-3);
     }
-    .filters-box input,
-    .filters-box select{
-      flex: 1 1 48%;
-      min-width: 160px;
+    .tbl tbody tr:nth-child(odd) td, .tbl tbody tr:hover td { background: transparent; }
+    .tbl tbody tr.linha td {
+      display: flex; justify-content: space-between; align-items: center; gap: var(--space-4);
+      padding: 5px 0; border: none; white-space: normal;
     }
-    .btn-limpar, .btn-exportar{
-      flex: 1 1 48%;
+    .tbl tbody tr.linha td::before {
+      content: attr(data-label); flex: 0 0 auto;
+      font-weight: 600; font-size: var(--fs-xs); color: var(--muted);
+      text-transform: uppercase; letter-spacing: .03em;
     }
+    .tbl tbody tr.linha td.c-num { display: none; }
+    .tbl tbody tr.linha td.c-serial { font-size: var(--fs-lg); font-weight: 700; padding: 0 0 var(--space-2); margin-bottom: var(--space-2); border-bottom: 1px solid var(--border); }
+    .tbl tbody tr.linha td.c-serial::before { display: none; }
+    .tbl tbody tr.linha td.c-acao { padding-top: var(--space-3); }
+    .tbl tbody tr.linha td.c-acao::before { display: none; }
+    .tbl tbody tr.linha td.c-acao .btn { width: 100%; }
+    .obs-cell span, .nome-cell span { max-width: 60%; }
+    .tbl .select-status { flex: 1; min-width: 0; max-width: 62%; }
   }
 </style>
 
@@ -131,7 +44,7 @@
   <h1>Máquinas Cadastradas</h1>
 
   <% if (typeof erro !== "undefined" && erro) { %>
-    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+    <div class="alert alert--danger">
       Não foi possível carregar as máquinas agora — a planilha está indisponível. Recarregue em instantes.
     </div>
   <% } %>
@@ -139,40 +52,29 @@
   <div id="contador">Exibindo 0 máquinas</div>
 
   <!-- ===================== FILTROS ===================== -->
-  <div class="filters-box">
-
-    <input type="text" id="filtroSerial" placeholder="Serials (ex: PBA123,11703)">
-
-    <select id="filtroStatus" data-label="Status">
-      <option value="">Status</option>
-    </select>
-
-    <select id="filtroSituacao" data-label="Situação">
-      <option value="">Situação</option>
-    </select>
-
-    <select id="filtroEmpresa" data-label="Empresa">
-      <option value="">Empresa</option>
-    </select>
-
-    <input type="text" id="filtroEvento" placeholder="Evento (ID ou nome)">
-
-    <select id="filtroRetorno" data-label="Retorno">
-      <option value="">Retorno</option>
-      <option value="hoje">Hoje</option>
-      <option value="semana">Esta Semana</option>
-      <option value="mes">Este Mês</option>
-      <option value="atrasada">Atrasadas</option>
-      <option value="emdia">Em Dia</option>
-    </select>
-
-    <button class="btn-limpar" id="btnLimpar">Limpar</button>
-    <button class="btn-exportar" id="btnExportar">Exportar Excel</button>
+  <div class="toolbar">
+    <div class="field"><label>Serial</label><input type="text" class="control" id="filtroSerial" placeholder="ex: PBA123, 11703"></div>
+    <div class="field"><label>Status</label><select class="control" id="filtroStatus" data-label="Todos"><option value="">Todos</option></select></div>
+    <div class="field"><label>Situação</label><select class="control" id="filtroSituacao" data-label="Todas"><option value="">Todas</option></select></div>
+    <div class="field"><label>Empresa</label><select class="control" id="filtroEmpresa" data-label="Todas"><option value="">Todas</option></select></div>
+    <div class="field"><label>Evento</label><input type="text" class="control" id="filtroEvento" placeholder="ID ou nome"></div>
+    <div class="field"><label>Retorno</label>
+      <select class="control" id="filtroRetorno" data-label="Retorno">
+        <option value="">Todos</option>
+        <option value="hoje">Hoje</option>
+        <option value="semana">Esta Semana</option>
+        <option value="mes">Este Mês</option>
+        <option value="atrasada">Atrasadas</option>
+        <option value="emdia">Em Dia</option>
+      </select>
+    </div>
+    <button class="btn btn-secondary" id="btnLimpar">Limpar</button>
+    <button class="btn btn-primary" id="btnExportar">Exportar Excel</button>
   </div>
 
   <!-- ===================== TABELA ===================== -->
-  <div class="table-wrapper">
-    <table>
+  <div class="table-scroll">
+    <table class="tbl">
       <thead>
         <tr>
           <th>#</th>
@@ -206,12 +108,12 @@
           data-processando="<%= (m.processando || '-').trim() %>"
           data-situacao="<%= m.situacao || '' %>"
         >
-          <td><%= i + 1 %></td>
-          <td><%= m.modelo || '-' %></td>
-          <td><%= m.serial || '-' %></td>
+          <td class="c-num" data-label="#"><%= i + 1 %></td>
+          <td data-label="Modelo"><%= m.modelo || '-' %></td>
+          <td class="c-serial" data-label="Serial"><%= m.serial || '-' %></td>
 
-          <td>
-            <select class="select-status" id="status_<%= m.linha %>">
+          <td data-label="Status">
+            <select class="control select-status" id="status_<%= m.linha %>">
               <% const sts = ["Estoque SP","Estoque RJ","Estoque URA","Em Uso SP","Em Uso RJ","Em Uso URA","Fixo"]; %>
               <% sts.forEach(s => { %>
                 <option value="<%= s %>" <%= (m.status === s ? "selected" : "") %>><%= s %></option>
@@ -220,35 +122,35 @@
           </td>
 
           <!-- ✅ Situação (derivada do status; veio do Histórico) -->
-          <td>
-            <% const _sitCls = { "Atrasado":"atrasado","Vence hoje":"vence","Dentro do prazo":"noprazo","Disponível":"disponivel","Fixo":"fixo","Sem data":"semdata" }[m.situacao] || ""; %>
-            <% if (m.situacao) { %><span class="pill-sit <%= _sitCls %>"><%= m.situacao %></span><% } else { %>-<% } %>
+          <td data-label="Situação">
+            <% const _sitCls = { "Atrasado":"pill--danger","Vence hoje":"pill--warn","Dentro do prazo":"pill--ok","Disponível":"pill--info","Fixo":"pill--neutral","Sem data":"pill--muted" }[m.situacao] || ""; %>
+            <% if (m.situacao) { %><span class="pill <%= _sitCls %>"><%= m.situacao %></span><% } else { %>-<% } %>
           </td>
 
-          <td><%= m.empresa || '-' %></td>
+          <td data-label="Empresa"><%= m.empresa || '-' %></td>
 
           <!-- ✅ Fixo também mostra evento -->
-          <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.idEvento || '-') : "-" %></td>
+          <td data-label="ID Evento"><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.idEvento || '-') : "-" %></td>
 
           <!-- ✅ Nome do evento (ao lado do ID) — trunca + tooltip com nome completo -->
           <% const _nomeEv = (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.nomeEvento || '-') : "-"; %>
-          <td title="<%= _nomeEv !== '-' ? _nomeEv : '' %>">
-            <span style="display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _nomeEv %></span>
+          <td class="nome-cell" data-label="Nome Evento" title="<%= _nomeEv !== '-' ? _nomeEv : '' %>">
+            <span><%= _nomeEv %></span>
           </td>
 
           <!-- ✅ Fixo também mostra retorno (vai ser "-") -->
-          <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
+          <td data-label="Retorno"><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
 
-          <!-- OBSERVAÇÃO (col P) + Operadora/Chip no tooltip + badge "Processando" -->
+          <!-- OBSERVAÇÃO (col P) + Operadora/Chip no tooltip -->
           <% const _obs = (m.observacao && m.observacao !== '-') ? m.observacao : ''; %>
           <% const _tip = [ (m.operadora && m.operadora !== '-') ? ('Operadora: ' + m.operadora) : '', (m.infoChip && m.infoChip !== '-') ? ('Chip: ' + m.infoChip) : '', _obs ? ('Obs: ' + _obs) : '' ].filter(Boolean).join('  |  '); %>
-          <td class="obs-cell" title="<%= _tip %>">
-            <span style="display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _obs || '-' %></span>
+          <td class="obs-cell" data-label="Obs" title="<%= _tip %>">
+            <span><%= _obs || '-' %></span>
           </td>
 
-          <td>
+          <td class="c-acao" data-label="Ação">
             <button
-              class="btn-salvar"
+              class="btn btn-primary btn-sm btn-salvar"
               data-serial="<%= m.serial %>"
               data-select="status_<%= m.linha %>"
             >
@@ -260,7 +162,7 @@
         <% }) %>
 
         <tr id="emptyRow" class="empty-row" style="<%= maquinas.length === 0 ? '' : 'display:none' %>">
-          <td colspan="11">Nenhuma máquina encontrada para os filtros aplicados.</td>
+          <td colspan="11" class="empty">Nenhuma máquina encontrada para os filtros aplicados.</td>
         </tr>
       </tbody>
     </table>
@@ -298,12 +200,12 @@ function hojeBRTMid() {
       vem do servidor, com fuso BRT correto).
 ============================================================ */
 const SIT_CLS = {
-  "Atrasado": "atrasado",
-  "Vence hoje": "vence",
-  "Dentro do prazo": "noprazo",
-  "Disponível": "disponivel",
-  "Fixo": "fixo",
-  "Sem data": "semdata"
+  "Atrasado": "pill--danger",
+  "Vence hoje": "pill--warn",
+  "Dentro do prazo": "pill--ok",
+  "Disponível": "pill--info",
+  "Fixo": "pill--neutral",
+  "Sem data": "pill--muted"
 };
 function situacaoClient(status, retornoBR) {
   const s = String(status || "").toLowerCase();
@@ -515,7 +417,7 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
 
     // avisa se a máquina está marcada como "Processando?" (col H)
     if (row && row.dataset.processando === "Sim") {
-      if (!confirm("Esta máquina está marcada como 'Processando'. Alterar o status mesmo assim?")) return;
+      if (!(await uiConfirm("Esta máquina está marcada como 'Processando'. Alterar o status mesmo assim?"))) return;
     }
 
     btn.disabled = true;
@@ -532,6 +434,7 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
         if (row) {
           // atualização in-place (preserva filtros/rolagem — sem location.reload)
           row.dataset.status = status;
+          btn.classList.remove("dirty"); // salvou → some o destaque
           // reflete a limpeza de evento/retorno que o backend faz ao virar Estoque/Fixo
           if (status.startsWith("Estoque")) {
             row.children[6].textContent = "-"; // ID Evento
@@ -554,7 +457,7 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
           celSit.innerHTML = "";
           if (novaSit) {
             const span = document.createElement("span");
-            span.className = "pill-sit " + (SIT_CLS[novaSit] || "");
+            span.className = "pill " + (SIT_CLS[novaSit] || "");
             span.textContent = novaSit;
             celSit.appendChild(span);
           } else {
@@ -570,6 +473,28 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
     } finally {
       btn.disabled = false;
     }
+  });
+});
+
+/* Interação viva: trocar o Status recalcula a pill de Situação na hora e marca o
+   Salvar como "dirty" (só grava ao clicar Salvar, como hoje). */
+document.querySelectorAll(".select-status").forEach(sel => {
+  sel.addEventListener("change", () => {
+    const row = sel.closest("tr");
+    if (!row) return;
+    const novaSit = situacaoClient(sel.value, row.dataset.retorno);
+    const celSit = row.children[4];
+    celSit.innerHTML = "";
+    if (novaSit) {
+      const span = document.createElement("span");
+      span.className = "pill " + (SIT_CLS[novaSit] || "");
+      span.textContent = novaSit;
+      celSit.appendChild(span);
+    } else {
+      celSit.textContent = "-";
+    }
+    const btn = row.querySelector(".btn-salvar");
+    if (btn) btn.classList.add("dirty");
   });
 });
 
