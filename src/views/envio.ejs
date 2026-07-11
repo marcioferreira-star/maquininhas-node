@@ -21,7 +21,9 @@
     gap: var(--space-2); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2);
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0;
   }
+  #listaSelecionadas li .sel-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
   #listaSelecionadas li .serial-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+  #listaSelecionadas li .sel-status { font-size: 12px; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
   .campo { margin-bottom: var(--space-3); }
   .campo > label { font-weight: 600; display: block; margin-bottom: var(--space-1); font-size: var(--fs-md); }
   .campo .control, .campo textarea.control { width: 100%; }
@@ -234,9 +236,16 @@ function renderSel() {
 
   selecionadas.forEach(s => {
     const li = document.createElement("li");
+    const status = String(maquinasPorSerial[s] || "").trim();
+    const statusHtml = status
+      ? `<span class="sel-status">${status.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</span>`
+      : "";
 
     li.innerHTML = `
-      <span class="serial-text">${s}</span>
+      <span class="sel-main">
+        <span class="serial-text">${s}</span>
+        ${statusHtml}
+      </span>
       <button type="button" class="btn btn-danger btn-sm" onclick="removerSel('${s.replace(/'/g, "\\'")}')">×</button>
     `;
 
