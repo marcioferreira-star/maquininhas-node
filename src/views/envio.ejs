@@ -419,7 +419,7 @@ if (btnBipar) {
   } else {
     btnBipar.addEventListener("click", () => {
       if (typeof ScannerBipe === "undefined") { showToast("Leitor ainda carregando, tente de novo.", "err"); return; }
-      ScannerBipe.abrir({ onLeu: biparSerial, titulo: "Bipar máquina" });
+      ScannerBipe.abrir({ onLeu: biparSerial, existing: selecionadas.slice(), titulo: "Bipar máquina" });
     });
   }
 }
@@ -517,8 +517,7 @@ if (btnSalvarEvento) {
 renderSel();
 </script>
 
-<!-- Scanner "Bipe" (câmera) — só nesta tela: IIFE do zxing-wasm + o módulo do scanner -->
-<script defer src="/vendor/zxing/zxing-reader.iife.js"></script>
-<script defer src="/js/scanner.js"></script>
+<!-- Scanner "Bipe" (câmera) — só nesta tela: bundle (ilha React) do BarcodeScanner REAL do torre -->
+<script defer src="/vendor/scanner-torre.js"></script>
 
 <%- include('partials/footer') %>
