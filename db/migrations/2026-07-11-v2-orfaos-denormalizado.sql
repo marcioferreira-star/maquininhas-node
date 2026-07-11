@@ -34,5 +34,10 @@ ALTER TABLE troca ADD COLUMN IF NOT EXISTS serial_nova    TEXT;
 ALTER TABLE localizacao ALTER COLUMN maquina_id DROP NOT NULL;
 ALTER TABLE localizacao ADD COLUMN IF NOT EXISTS serial TEXT;
 
--- MAQUINA: guardar o status cru (col G) p/ um dia não sumir status fora do mapa
-ALTER TABLE maquina ADD COLUMN IF NOT EXISTS status_raw TEXT;
+-- MAQUINA: status cru (col G) + denormalizados da CONTROLE (col J/K/L/M crus) p/ o
+-- adapter de leitura reproduzir getMaquinas byte-a-byte (inclusive id "N/A").
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS status_raw      TEXT;
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS id_evento_raw   TEXT;
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS nome_evento_raw TEXT;
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS produtora_raw   TEXT;
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS comercial_raw   TEXT;
