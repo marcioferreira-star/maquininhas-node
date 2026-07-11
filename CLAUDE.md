@@ -97,6 +97,12 @@ política única e cadastro de evento validados ao vivo — ver memória `maquin
   nome** (substring). **Exportar Excel** refatorado p/ usar `dataset` (não índice de coluna → à prova
   de reordenação) + colunas Situação/Nome Evento. Update in-place do Salvar: índices corrigidos +
   recalcula a Situação (helper `situacaoClient` espelha o server).
+- **Ajustes pós-review do Marcio (mesma branch):** (a) **BUG** — máquina Estoque/Disponível
+  aparecia no filtro de retorno ("Esta Semana" etc.) porque `data-retorno` guardava a data crua
+  (a política única limpa J–M, mas **não** as datas N/O). Fix: `data-retorno` reflete o status
+  (Estoque→"-") **e** o filtro de retorno só vale p/ "Em Uso". (b) linhas **alternadas (zebra)** +
+  hover, igual ao Histórico. (c) **Nome Evento** trunca com reticências (max-width 220px) + `title`
+  com nome completo no hover (mesma lógica da Obs) → larguras mais ajustadas.
 - Testes **14/14**, lint limpo. ⚠️ **Verificação visual da tela logada pendente — o Marcio confere no preview.**
 
 ### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4/5 + Ajustes (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`, `feat/ajustes-ux`, `feat/onda5-excecoes`)
