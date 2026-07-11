@@ -78,6 +78,36 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-11 — Redesenho "A Densificada" (Ondas 0–6) EM PRODUÇÃO
+Reskin + reestruturação de CSS/markup guiado pelo plano `docs/DESIGN-PROPOSTA-2026-07.md` (direção A
++ densidade da B; alvo `docs/design/direcao-a-operacional-limpa.html`). **Zero mudança em db/sheet/rotas/
+payloads/fluxos** — só a casca. Estratégia: fundação **aditiva** (nomes novos convivem com o legado; cada
+onda migra 1 tela; a última remove o legado com grep provando zero uso). Padrão: Fable planejou, Opus executou.
+- **Onda 0 — fundação (`style.css`):** tokens (`--space-*`/`--fs-*`/`--radius-*`/6 estados de pill AA light+dark),
+  dark em bloco único (`[data-theme]`, some o `@media prefers-color-scheme`), foco global `:where(...):focus-visible`,
+  **Inter self-hosted** (`src/public/fonts/inter-variable-latin.woff2` + `@font-face swap`), componentes novos
+  (`.tbl`/`.table-scroll` sticky, `.toolbar`/`.field`/`.control`, `.pill`+6, `.panel`, `.alert`+3, `.empty`,
+  `.card-list`/`.mcard`, `dialog.dialog`), `.btn` consolidado, `uiConfirm/uiPrompt` (footer).
+- **Onda 1 — chrome + dashboard:** sidebar item ativo (fundo sutil + ícone laranja + barra 3px), top-header 52px,
+  KPI cards (`.kpi` + foot + sub SP/RJ/URA + pill "Retorno vencido" no Atrasadas). Breakpoints padronizados: **drawer ≤1024, cards ≤720**.
+- **Onda 2 — Máquinas ★:** `.tbl` densa desktop + **CARDS no mobile** (DOM único: `tr`→card, `td`→`label:valor` via `::before`);
+  filtros→toolbar, `.pill-sit`→`.pill`, recálculo vivo da Situação no `change` do select, `confirm()`→`uiConfirm`.
+- **Onda 3 — Envio:** `.box`→`.panel`, inputs→`.control`, botão→`.btn .btn-primary`, `prompt()`→`uiPrompt`, cores do eco→tokens.
+- **Onda 4 — Histórico:** **matou o hack de 2 tabelas + scroll-sync** → 1 `.tbl` em `.table-scroll` (sticky nativo);
+  cards no mobile. **Fix pós-review:** `table-layout:fixed` + colgroup proporcional (ID Evento 7%, texto 11–14%) +
+  truncagem por célula — elimina a lacuna larga entre ID Evento e Ação (era coluna de 164px com ~50px de conteúdo).
+- **Onda 5 — Exceções:** 3 `.tbl`, forms→`.field/.control`, `.flag-off`→`.alert--warn` (mata token inexistente
+  `var(--fair-wash)`), `.exc-empty`→`.empty`. Gate `EXCECOES_ATIVAS` e rotas **intactos**.
+- **Onda 6 — login + limpeza:** **favicon** inline SVG (Blood Orange + glifo POS) no `header.ejs`/`login.ejs` (mata o 404);
+  removeu CSS morto (rules bare `table`/`th,td` — inclusive o footgun `overflow:hidden` do sticky —, `.empty-row`,
+  compat `.btn-azul`/`.btn-registrar`, `.selecionadas-box` global). Saldo do merge: **+196/−591 linhas**.
+- **Ajuste pós-review — título na top-header:** o `<h1>` grande saiu do conteúdo e virou `.page-title` na barra do
+  topo (deriva de `page` via mapa no `sidebar.ejs`); removido o `<h1>` standalone das 5 telas.
+- **Preview sem login:** `authMiddleware` dispensa login quando `VERCEL_ENV=preview` (injeta usuário de preview);
+  **produção segue protegida** (verificado: prod `/maquinas`→302 `/login`). ⚠️ Tradeoff aceito pelo Marcio: preview aberto a quem tem a URL.
+- Lint + test **15/15** verdes; verificado por DOM no preview (6 telas, light+dark, 1280+375, zero erro de console).
+  **EM PROD** (`main` `1f2073a`).
+
 ### 2026-07-10 (tarde) — Teste real de envio/retorno + ajustes (branch `feat/ajustes-envio`)
 Depois de um **teste real de envio→retorno em prod** (round-trip reversível; atomicidade,
 política única e cadastro de evento validados ao vivo — ver memória `maquininhas-teste-envio-retorno-2026-07-10`):

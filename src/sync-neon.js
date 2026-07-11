@@ -83,39 +83,73 @@ const j = (row) => JSON.stringify(row);
 const nn = (v) => (v && String(v).trim() && String(v).trim() !== "-" ? String(v).trim() : null);
 const dm = (arr) => [...new Set(arr.filter(Boolean))];
 
+// staging é TRANSIENTE → DROP+CREATE a cada sync garante que o schema sempre casa
+// com o código (antes usava CREATE IF NOT EXISTS + TRUNCATE, o que fossilizava o
+// schema antigo e quebrava o bulk quando colunas novas eram adicionadas).
 const STAGING_DDL = `
 CREATE SCHEMA IF NOT EXISTS staging;
-CREATE TABLE IF NOT EXISTS staging.controle (origem_linha INT, raw JSONB, serial TEXT, modelo TEXT, operadora TEXT, info_chip TEXT, empresa TEXT, adquirente TEXT, processando BOOLEAN, observacao TEXT, status_raw TEXT, status maquina_status, local praca, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS staging.historico (origem_linha INT, raw JSONB, serial TEXT, acao TEXT, tipo movimento_tipo, usuario TEXT, observacao TEXT, nome_evento TEXT, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS staging.eventos (origem_linha INT, raw JSONB, id_evento_raw TEXT, id_evento BIGINT, nome TEXT, produtora_codigo INT, produtora_nome TEXT, comercial TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS staging.perdidas (origem_linha INT, raw JSONB, serial TEXT, status_perda TEXT, local TEXT, empresa TEXT, id_evento_raw TEXT, id_evento BIGINT, nome_evento TEXT, responsavel TEXT, comercial TEXT, data_envio_raw TEXT, data_envio DATE, observacao TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS staging.trocas (origem_linha INT, raw JSONB, serial_defeito TEXT, problema TEXT, local TEXT, serial_nova TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-CREATE TABLE IF NOT EXISTS staging.localizar (origem_linha INT, raw JSONB, modelo TEXT, serial TEXT, referencia TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
-TRUNCATE staging.controle, staging.historico, staging.eventos, staging.perdidas, staging.trocas, staging.localizar;
+DROP TABLE IF EXISTS staging.controle;
+DROP TABLE IF EXISTS staging.historico;
+DROP TABLE IF EXISTS staging.eventos;
+DROP TABLE IF EXISTS staging.perdidas;
+DROP TABLE IF EXISTS staging.trocas;
+DROP TABLE IF EXISTS staging.localizar;
+CREATE TABLE staging.controle (origem_linha INT, raw JSONB, serial TEXT, modelo TEXT, operadora TEXT, info_chip TEXT, empresa TEXT, adquirente TEXT, processando BOOLEAN, observacao TEXT, status_raw TEXT, status maquina_status, local praca, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE staging.historico (origem_linha INT, raw JSONB, serial TEXT, acao TEXT, tipo movimento_tipo, usuario TEXT, observacao TEXT, nome_evento TEXT, status_raw TEXT, produtora TEXT, comercial TEXT, id_evento_raw TEXT, id_evento BIGINT, data_saida_raw TEXT, data_saida DATE, data_retorno_raw TEXT, data_retorno DATE, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE staging.eventos (origem_linha INT, raw JSONB, id_evento_raw TEXT, id_evento BIGINT, nome TEXT, produtora_codigo INT, produtora_nome TEXT, comercial TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE staging.perdidas (origem_linha INT, raw JSONB, serial TEXT, status_perda TEXT, local TEXT, empresa TEXT, id_evento_raw TEXT, id_evento BIGINT, nome_evento TEXT, responsavel TEXT, comercial TEXT, data_envio_raw TEXT, data_envio DATE, observacao TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE staging.trocas (origem_linha INT, raw JSONB, serial_defeito TEXT, problema TEXT, local TEXT, serial_nova TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
+CREATE TABLE staging.localizar (origem_linha INT, raw JSONB, modelo TEXT, serial TEXT, referencia TEXT, motivo_revisao TEXT[] NOT NULL DEFAULT '{}');
 `;
 
+// v2 (Fase 0 do cutover): LEFT JOIN em vez de INNER → órfãos (serial fora da
+// CONTROLE) deixam de ser DESCARTADOS; guarda serial cru + campos denormalizados
+// do HISTORICO. Ver db/migrations/2026-07-11-v2-orfaos-denormalizado.sql.
 const PROMOCAO_SQL = `
 TRUNCATE movimento, perda, troca, localizacao, maquina, evento RESTART IDENTITY CASCADE;
 INSERT INTO evento (id_evento, nome, produtora_codigo, produtora_nome, comercial)
 SELECT DISTINCT ON (id_evento) id_evento, nome, produtora_codigo, produtora_nome, comercial
 FROM staging.eventos WHERE id_evento IS NOT NULL AND nome IS NOT NULL
 ORDER BY id_evento, ((produtora_nome IS NOT NULL)::int+(produtora_codigo IS NOT NULL)::int+(comercial IS NOT NULL)::int) DESC, origem_linha DESC;
-INSERT INTO maquina (serial, modelo, operadora, info_chip, empresa, adquirente, status, local, id_evento_atual, data_saida, data_retorno, processando, observacao, origem_linha)
-SELECT c.serial, c.modelo, c.operadora, c.info_chip, COALESCE(c.empresa,'Ingresse'), c.adquirente, c.status, c.local,
+INSERT INTO maquina (serial, modelo, operadora, info_chip, empresa, adquirente, status_raw, status, local, id_evento_atual, data_saida, data_retorno, processando, observacao, origem_linha)
+SELECT c.serial, c.modelo, c.operadora, c.info_chip, COALESCE(c.empresa,'Ingresse'), c.adquirente, c.status_raw, c.status, c.local,
   (SELECT e.id_evento FROM evento e WHERE e.id_evento=c.id_evento), c.data_saida,
   CASE WHEN c.status='FIXO' THEN NULL ELSE c.data_retorno END, COALESCE(c.processando,false), c.observacao, c.origem_linha
 FROM staging.controle c WHERE c.serial IS NOT NULL AND c.status IS NOT NULL;
-INSERT INTO movimento (maquina_id, id_evento, tipo, data_saida, data_retorno, usuario, observacao, origem, origem_linha, criado_em)
-SELECT m.id, (SELECT e.id_evento FROM evento e WHERE e.id_evento=h.id_evento), h.tipo, h.data_saida, h.data_retorno, h.usuario, h.observacao, 'sheet_sync', h.origem_linha,
+INSERT INTO movimento (maquina_id, serial, id_evento, id_evento_raw, tipo, acao_raw, status_raw, data_saida, data_retorno, usuario, observacao, nome_evento_raw, produtora_raw, comercial_raw, origem, origem_linha, criado_em)
+SELECT m.id, h.serial, (SELECT e.id_evento FROM evento e WHERE e.id_evento=h.id_evento), h.id_evento_raw, h.tipo, h.acao, h.status_raw, h.data_saida, h.data_retorno, h.usuario, h.observacao, h.nome_evento, h.produtora, h.comercial, 'sheet_sync', h.origem_linha,
   COALESCE(h.data_saida, h.data_retorno, CURRENT_DATE)::timestamptz
-FROM staging.historico h JOIN maquina m ON m.serial=h.serial;
-INSERT INTO perda (maquina_id, id_evento, responsavel, comercial, data_envio, status_perda, local, observacao)
-SELECT m.id, (SELECT e.id_evento FROM evento e WHERE e.id_evento=p.id_evento), p.responsavel, p.comercial, p.data_envio, p.status_perda, p.local, p.observacao
-FROM staging.perdidas p JOIN maquina m ON m.serial=p.serial;
-INSERT INTO troca (maquina_defeito_id, problema, local, maquina_nova_id)
-SELECT md.id, t.problema, t.local, mn.id FROM staging.trocas t JOIN maquina md ON md.serial=t.serial_defeito LEFT JOIN maquina mn ON mn.serial=t.serial_nova;
-INSERT INTO localizacao (maquina_id, referencia)
-SELECT m.id, l.referencia FROM staging.localizar l JOIN maquina m ON m.serial=l.serial;
+FROM staging.historico h LEFT JOIN maquina m ON m.serial=h.serial;
+INSERT INTO perda (maquina_id, serial, id_evento, responsavel, comercial, data_envio, status_perda, local, observacao)
+SELECT m.id, p.serial, (SELECT e.id_evento FROM evento e WHERE e.id_evento=p.id_evento), p.responsavel, p.comercial, p.data_envio, p.status_perda, p.local, p.observacao
+FROM staging.perdidas p LEFT JOIN maquina m ON m.serial=p.serial;
+INSERT INTO troca (maquina_defeito_id, serial_defeito, problema, local, maquina_nova_id, serial_nova)
+SELECT md.id, t.serial_defeito, t.problema, t.local, mn.id, t.serial_nova FROM staging.trocas t LEFT JOIN maquina md ON md.serial=t.serial_defeito LEFT JOIN maquina mn ON mn.serial=t.serial_nova;
+INSERT INTO localizacao (maquina_id, serial, referencia)
+SELECT m.id, l.serial, l.referencia FROM staging.localizar l LEFT JOIN maquina m ON m.serial=l.serial;
+`;
+
+// v2 (Fase 0 do cutover) — auto-migração idempotente: torna as satélites
+// tolerantes a órfão (maquina_id nulo) + adiciona serial cru e os campos
+// denormalizados do HISTORICO. Roda a cada sync (como o STAGING/SYNC_META DDL);
+// após a 1ª vez, tudo vira no-op instantâneo. Espelho de db/migrations/2026-07-11-*.
+const MIGRATION_V2_DDL = `
+ALTER TABLE movimento ALTER COLUMN maquina_id DROP NOT NULL;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS serial TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS acao_raw TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS id_evento_raw TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS status_raw TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS nome_evento_raw TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS produtora_raw TEXT;
+ALTER TABLE movimento ADD COLUMN IF NOT EXISTS comercial_raw TEXT;
+ALTER TABLE perda ALTER COLUMN maquina_id DROP NOT NULL;
+ALTER TABLE perda ADD COLUMN IF NOT EXISTS serial TEXT;
+ALTER TABLE troca ALTER COLUMN maquina_defeito_id DROP NOT NULL;
+ALTER TABLE troca ADD COLUMN IF NOT EXISTS serial_defeito TEXT;
+ALTER TABLE troca ADD COLUMN IF NOT EXISTS serial_nova TEXT;
+ALTER TABLE localizacao ALTER COLUMN maquina_id DROP NOT NULL;
+ALTER TABLE localizacao ADD COLUMN IF NOT EXISTS serial TEXT;
+ALTER TABLE maquina ADD COLUMN IF NOT EXISTS status_raw TEXT;
 `;
 
 // chave fixa do advisory lock de sessão (impede cron + manual, ou 2 operadores,
@@ -172,7 +206,9 @@ export async function sincronizar({ origem = "cron" } = {}) {
   });
   const rowsHist = historico.map((r, i) => {
     const idp = parseId(r[1], r[7]), dS = dataISO(r[3]), dR = dataISO(r[4]);
-    return [i + 2, j(r), nn(r[0]), nn(r[2]), tipoMov(r[2]), nn(r[6]), nn(r[10]), nn(r[7]), nn(r[1]), idp.id, dS.raw, dS.iso, dR.raw, dR.iso,
+    // captura tb col F (status congelado), I (produtora), J (comercial) p/ o adapter
+    // de leitura reproduzir montarHistorico sem JOIN (inclusive em id "N/A"/órfão).
+    return [i + 2, j(r), nn(r[0]), nn(r[2]), tipoMov(r[2]), nn(r[6]), nn(r[10]), nn(r[7]), nn(r[5]), nn(r[8]), nn(r[9]), nn(r[1]), idp.id, dS.raw, dS.iso, dR.raw, dR.iso,
       dm([dS.motivo === "sentinela" ? null : dS.motivo, dR.motivo === "sentinela" ? null : dR.motivo])];
   });
   const visto = new Map();
@@ -206,9 +242,10 @@ export async function sincronizar({ origem = "cron" } = {}) {
     }
 
     try {
+      await client.query(MIGRATION_V2_DDL); // auto-migração idempotente (Fase 0)
       await client.query(STAGING_DDL);
       await bulk(client, "staging.controle", ["origem_linha","raw","serial","modelo","operadora","info_chip","empresa","adquirente","processando","observacao","status_raw","status","local","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsControle);
-      await bulk(client, "staging.historico", ["origem_linha","raw","serial","acao","tipo","usuario","observacao","nome_evento","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsHist);
+      await bulk(client, "staging.historico", ["origem_linha","raw","serial","acao","tipo","usuario","observacao","nome_evento","status_raw","produtora","comercial","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsHist);
       await bulk(client, "staging.eventos", ["origem_linha","raw","id_evento_raw","id_evento","nome","produtora_codigo","produtora_nome","comercial","motivo_revisao"], rowsEv);
       await bulk(client, "staging.perdidas", ["origem_linha","raw","serial","status_perda","local","empresa","id_evento_raw","id_evento","nome_evento","responsavel","comercial","data_envio_raw","data_envio","observacao","motivo_revisao"], rowsPerd);
       await bulk(client, "staging.trocas", ["origem_linha","raw","serial_defeito","problema","local","serial_nova","motivo_revisao"], rowsTr);
