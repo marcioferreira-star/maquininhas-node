@@ -93,6 +93,10 @@
     white-space: nowrap;             /* ✅ não quebra letra por letra */
   }
 
+  /* linhas alternadas + hover (igual à tabela de Histórico) */
+  tbody tr:nth-child(odd) td { background: var(--surface-2); }
+  tbody tr:hover td          { background: var(--surface-3); }
+
   .btn-salvar {
     background: var(--brand);
     border: none;
@@ -194,7 +198,7 @@
           data-nomeevento="<%= (m.nomeEvento || '-') %>"
           data-produtora="<%= (m.produtora || '-') %>"
           data-comercial="<%= (m.comercial || '-') %>"
-          data-retorno="<%= (m.dataRetorno || '-') %>"
+          data-retorno="<%= (m.status.startsWith('Em Uso') || m.status === 'Fixo') ? (m.dataRetorno || '-') : '-' %>"
           data-processando="<%= (m.processando || '-').trim() %>"
           data-situacao="<%= m.situacao || '' %>"
         >
@@ -222,8 +226,11 @@
           <!-- ✅ Fixo também mostra evento -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.idEvento || '-') : "-" %></td>
 
-          <!-- ✅ Nome do evento (ao lado do ID) -->
-          <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.nomeEvento || '-') : "-" %></td>
+          <!-- ✅ Nome do evento (ao lado do ID) — trunca + tooltip com nome completo -->
+          <% const _nomeEv = (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.nomeEvento || '-') : "-"; %>
+          <td title="<%= _nomeEv !== '-' ? _nomeEv : '' %>">
+            <span style="display:inline-block;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _nomeEv %></span>
+          </td>
 
           <!-- ✅ Fixo também mostra retorno (vai ser "-") -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
@@ -370,9 +377,9 @@ function aplicarFiltros() {
       if (!termosEv.some(t => eventoStr === t || nomeStr.includes(t))) mostrar = false;
     }
 
-    /* ----- Filtro de retorno ----- */
+    /* ----- Filtro de retorno (só faz sentido p/ máquina EM USO) ----- */
     if (ret) {
-      if (!retorno || retorno === "-") {
+      if (!status.startsWith("Em Uso") || !retorno || retorno === "-") {
         mostrar = false;
       } else {
         // ✅ parse em horário LOCAL (não usar new Date("aaaa-mm-dd") → vira UTC e regride 1 dia)

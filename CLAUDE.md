@@ -78,6 +78,27 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-10 (tarde) — Teste real de envio/retorno + ajustes (branch `feat/ajustes-envio`)
+Depois de um **teste real de envio→retorno em prod** (round-trip reversível; atomicidade,
+política única e cadastro de evento validados ao vivo — ver memória `maquininhas-teste-envio-retorno-2026-07-10`):
+- **Envio (`envio.ejs`):** os `alert()` de validação/erro viraram **`showToast`** (não-bloqueante,
+  consistente com o sucesso; não trava mais mobile nem navegador embutido em diálogo nativo).
+  Botão "Cadastrar este evento" `#0a58ca`→`var(--brand)`; caixa `#formNovoEvento` `#fafafa`/`#ddd`
+  →`var(--surface-2)`/`var(--border)` (fim do fundo branco no dark). *(Regra "Envio Fixo dispensa
+  data de retorno" e o toast de sucesso do envio JÁ existiam.)*
+- **Histórico (`historico.ejs`):** removida a coluna **"Status"** (a aba registra só a AÇÃO; a
+  situação derivada não pertence ao log). Filtros intactos (usam `cells[0..2]`, antes da coluna).
+  A situação ainda é computada em `dominio.js` (não removida — é testada), só não é mais renderizada.
+- **Máquinas (`maquinas.ejs` + rota + `datas.js`):** nova coluna **"Situação"** ao lado de Status
+  (pill Atrasado/Vence hoje/Dentro do prazo/Disponível/Fixo/Sem data), derivada do **status atual**
+  via novo **`situacaoDeMaquina(status, retorno)`** em `datas.js` (calc. **server-side na rota** =
+  fuso BRT correto; +teste). Nova coluna **"Nome Evento"** ao lado de "ID Evento". Removido o pill
+  **"proc."**. Filtros: novo select **Situação** (inteligente) + Evento agora casa por **ID exato OU
+  nome** (substring). **Exportar Excel** refatorado p/ usar `dataset` (não índice de coluna → à prova
+  de reordenação) + colunas Situação/Nome Evento. Update in-place do Salvar: índices corrigidos +
+  recalcula a Situação (helper `situacaoClient` espelha o server).
+- Testes **14/14**, lint limpo. ⚠️ **Verificação visual da tela logada pendente — o Marcio confere no preview.**
+
 ### 2026-07-10 — Auditoria minuciosa + Ondas 0/1/2/3/4/5 + Ajustes (branches `feat/onda0-blindagem-e-fuso`, `feat/onda2-robustez`, `feat/onda3-operador`, `feat/onda4-design`, `feat/ajustes-ux`, `feat/onda5-excecoes`)
 - **Auditoria multi-agente** (Opus análise+verificação, Fable planejamento): 82 achados, 79 confirmados, 0 refutados, 16 altos. Doc completo: `docs/AUDITORIA-2026-07-10.md`.
 - **Onda 1 — bug de fuso (CRÍTICO p/ dados):** `utils/datas.js` agora deriva "hoje" de `America/Sao_Paulo` via Intl (`hojeBR()` novo + `startOfDayLocal()` corrigido) — **não depende mais do TZ do processo**. Na Vercel (UTC) o código antigo gravava retorno com data de amanhã e contava atraso 1 dia cedo entre 21h-24h BRT. `api.js` usa o `hojeBR()`/`parseBRDate` canônicos (removida a duplicação). Teste de regressão em `datas.test.js` (roda em fusos que diferem 25h).
