@@ -46,6 +46,47 @@
       setTimeout(function(){ t.remove(); }, 250);
     }, 2600);
   }
+
+  // Sincronização manual (planilha → espelho Neon) — botão no rodapé da sidebar.
+  // Global (a sidebar está em todas as telas).
+  (function syncUI(){
+    var btn = document.getElementById('btnSync');
+    var stat = document.getElementById('syncStatus');
+    if (!btn || !stat) return;
+
+    // timestamp completo (ISO com fuso) → BRT. new Date(ISO-completo) é seguro
+    // (o bug UTC só afeta strings de data pura "aaaa-mm-dd").
+    function fmtBRT(iso){
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString('pt-BR', { timeZone:'America/Sao_Paulo', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+      } catch(e){ return '—'; }
+    }
+    function pinta(u){
+      if (!u) { stat.textContent = 'Última: nunca'; return; }
+      stat.textContent = u.ok ? ('Última: ' + fmtBRT(u.executado_em)) : ('Última: ' + fmtBRT(u.executado_em) + ' (falhou)');
+    }
+    function carregar(){
+      fetch('/api/sync-status').then(function(r){ return r.json(); })
+        .then(function(d){ pinta(d.ultimo); })
+        .catch(function(){ stat.textContent = 'Última: —'; });
+    }
+    carregar();
+
+    btn.addEventListener('click', function(){
+      btn.disabled = true;
+      stat.textContent = 'Sincronizando…';
+      fetch('/api/sync-manual', { method:'POST', headers:{ 'Content-Type':'application/json' } })
+        .then(function(r){ return r.json().then(function(d){ return { status:r.status, d:d }; }); })
+        .then(function(res){
+          if (res.status === 409) showToast(res.d.msg || 'Já há uma sincronização em andamento.', 'err');
+          else if (res.d.ok) showToast('Sincronizado: ' + res.d.maquina + ' máquinas em ' + (res.d.ms/1000).toFixed(1) + 's');
+          else showToast(res.d.msg || 'Falha ao sincronizar.', 'err');
+        })
+        .catch(function(){ showToast('Erro de rede ao sincronizar.', 'err'); })
+        .then(function(){ btn.disabled = false; carregar(); });
+    });
+  })();
 </script>
 
 <div id="toastArea"></div>
