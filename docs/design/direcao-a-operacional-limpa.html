@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direção A — Operacional Limpa · Maquininhas</title>
+<style>
+/* ============================================================
+   DIREÇÃO A — "OPERACIONAL LIMPA"
+   Maquininhas · ferramenta operacional interna Ingresse
+   Data-first, calma, espaçosa. Blood Orange com parcimônia.
+   Um único sistema de: tabela · filtro · botão · pill · empty-state.
+   Dark mode por sobrescrita de tokens (zero duplicação de regra).
+   ============================================================ */
+
+/* ---- 1. TOKENS ---- */
+:root{
+  /* espaçamento — grade de 4px */
+  --space-0:0; --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px; --space-12:48px; --space-16:64px;
+
+  /* raios */
+  --radius-sm:6px; --radius-md:9px; --radius-lg:14px; --radius-full:999px;
+
+  /* escala tipográfica */
+  --fs-xs:0.75rem;   /* 12 */
+  --fs-sm:0.8125rem; /* 13 */
+  --fs-base:0.875rem;/* 14 — base operacional */
+  --fs-md:1rem;      /* 16 */
+  --fs-lg:1.1875rem; /* 19 */
+  --fs-xl:1.5rem;    /* 24 */
+  --fs-2xl:2rem;     /* 32 */
+  --fs-3xl:2.75rem;  /* 44 — números de KPI */
+  --lh-tight:1.1; --lh-snug:1.3; --lh-normal:1.5;
+  --ff:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* marca */
+  --brand:#FF271A; --brand-hover:#E51D11; --brand-press:#C7160C;
+  --brand-soft:#FFECEA; --brand-ring:rgba(255,39,26,.32);
+
+  /* superfícies / texto (LIGHT) */
+  --bg:#F4F4F1;
+  --surface:#FFFFFF;
+  --surface-2:#FAFAF8;      /* zebra sutil */
+  --surface-3:#F1F1EE;      /* hover linha / campos */
+  --border:#E6E5E0;
+  --border-strong:#D5D4CE;
+  --text:#1A1A1A;
+  --text-muted:#67665F;
+  --text-subtle:#918F87;
+
+  /* cabeçalho de tabela / sidebar — âncora preta constante */
+  --ink:#1A1A1A;
+  --ink-2:#242320;
+  --ink-fg:#EDECE8;
+  --ink-fg-muted:#A5A39C;
+  --ink-line:rgba(255,255,255,.09);
+
+  /* pills — tokens semânticos (contraste AA) */
+  --pill-danger-bg:#FDEBE9;  --pill-danger-fg:#A11409;  --pill-danger-dot:#D62210;
+  --pill-warn-bg:#FBEEC2;    --pill-warn-fg:#6B4E00;    --pill-warn-dot:#B98900;
+  --pill-ok-bg:#E1F4E8;      --pill-ok-fg:#136139;      --pill-ok-dot:#1E9E5A;
+  --pill-info-bg:#E5EFFB;    --pill-info-fg:#1B4C86;    --pill-info-dot:#2C6FD1;
+  --pill-neutral-bg:#EAEAED; --pill-neutral-fg:#3B3B44; --pill-neutral-dot:#7A7A85;
+  --pill-muted-bg:#F1F1EE;   --pill-muted-fg:#5C5B54;   --pill-muted-border:#DCDBD5;
+
+  /* sombras */
+  --shadow-sm:0 1px 2px rgba(26,26,26,.05), 0 1px 1px rgba(26,26,26,.04);
+  --shadow-md:0 6px 20px -6px rgba(26,26,26,.14), 0 2px 6px -2px rgba(26,26,26,.08);
+  --shadow-app:0 24px 60px -24px rgba(26,26,26,.32), 0 4px 14px -6px rgba(26,26,26,.14);
+
+  --focus:0 0 0 3px var(--brand-ring);
+}
+[data-theme="dark"]{
+  --bg:#111110;
+  --surface:#1B1B19;
+  --surface-2:#201F1D;
+  --surface-3:#262523;
+  --border:#2E2D2A;
+  --border-strong:#3A3935;
+  --text:#F1F0EC;
+  --text-muted:#A3A199;
+  --text-subtle:#79776F;
+
+  --brand-soft:#2A1512;
+  --brand-ring:rgba(255,39,26,.40);
+
+  --ink:#0E0E0D; --ink-2:#161514; --ink-fg:#F2F1ED; --ink-fg-muted:#9A988F; --ink-line:rgba(255,255,255,.08);
+
+  --pill-danger-bg:#3A1512;  --pill-danger-fg:#FF9A8E;  --pill-danger-dot:#FF5B47;
+  --pill-warn-bg:#332A0C;    --pill-warn-fg:#F5CE63;    --pill-warn-dot:#E0AF35;
+  --pill-ok-bg:#0F2C1D;      --pill-ok-fg:#63D08E;      --pill-ok-dot:#33B36B;
+  --pill-info-bg:#12233B;    --pill-info-fg:#7FB2F7;    --pill-info-dot:#4A8DE8;
+  --pill-neutral-bg:#282724; --pill-neutral-fg:#C9C7C0; --pill-neutral-dot:#8A887F;
+  --pill-muted-bg:#211F1D;   --pill-muted-fg:#94928A;   --pill-muted-border:#37352F;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 8px 24px -8px rgba(0,0,0,.6);
+  --shadow-app:0 24px 60px -24px rgba(0,0,0,.7);
+}
+
+/* ---- 2. BASE ---- */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  font-family:var(--ff);
+  font-size:var(--fs-base);
+  line-height:var(--lh-normal);
+  color:var(--text);
+  background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button{font-family:inherit}
+.tnum{font-variant-numeric:tabular-nums lining-nums}
+.ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.ic--sm{width:16px;height:16px}
+:focus-visible{outline:none;box-shadow:var(--focus);border-radius:var(--radius-sm)}
+
+/* ---- 3. SHELL DE APRESENTAÇÃO (chrome do mockup, fora do app) ---- */
+.shell{max-width:1320px;margin:0 auto;padding:var(--space-8) var(--space-6) var(--space-16)}
+.doc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-6)}
+.doc-head__id{display:flex;align-items:center;gap:var(--space-3)}
+.doc-badge{display:inline-flex;align-items:center;height:26px;padding:0 var(--space-3);border-radius:var(--radius-full);
+  background:var(--ink);color:var(--ink-fg);font-size:var(--fs-xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.doc-head h1{margin:0;font-size:var(--fs-xl);font-weight:700;line-height:var(--lh-tight);letter-spacing:-.01em}
+.doc-head p{margin:var(--space-1) 0 0;color:var(--text-muted);font-size:var(--fs-sm);max-width:52ch}
+.doc-controls{display:flex;align-items:center;gap:var(--space-3)}
+
+/* segmento (desktop/mobile) — mesmo sistema visual */
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:3px;gap:2px;box-shadow:var(--shadow-sm)}
+.seg button{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text-muted);
+  font-size:var(--fs-sm);font-weight:600;padding:7px 12px;border-radius:7px;cursor:pointer}
+.seg button:hover{color:var(--text)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--ink-fg)}
+
+/* toggle tema */
+.icon-toggle{width:40px;height:40px;display:inline-grid;place-items:center;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);border-radius:var(--radius-md);cursor:pointer;box-shadow:var(--shadow-sm)}
+.icon-toggle:hover{border-color:var(--border-strong)}
+.icon-toggle .ic{width:19px;height:19px}
+[data-theme="light"] .icon-toggle .i-moon{display:none}
+[data-theme="dark"] .icon-toggle .i-sun{display:none}
+
+/* ---- 4. STAGE + FRAME DO APP ---- */
+.stage{display:flex;justify-content:center}
+.app{
+  position:relative;width:100%;height:820px;
+  container-type:inline-size;container-name:app;
+  display:flex;background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-app)}
+.app.is-phone{width:390px;height:820px}
+
+/* ---- 5. SIDEBAR ---- */
+.sidebar{width:246px;flex:none;background:var(--ink);color:var(--ink-fg-muted);
+  display:flex;flex-direction:column;border-right:1px solid var(--ink-line)}
+.brand{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-5) var(--space-5)}
+.brand__mark{width:34px;height:34px;flex:none;border-radius:9px;background:var(--brand);display:grid;place-items:center;color:#fff}
+.brand__mark .ic{width:20px;height:20px;stroke-width:2}
+.brand__name{display:flex;flex-direction:column;line-height:1.15}
+.brand__name b{color:var(--ink-fg);font-size:var(--fs-md);font-weight:700;letter-spacing:-.01em}
+.brand__name span{color:var(--ink-fg-muted);font-size:var(--fs-xs);letter-spacing:.02em}
+.nav{display:flex;flex-direction:column;gap:2px;padding:var(--space-3) var(--space-3) var(--space-2)}
+.nav__label{padding:var(--space-3) var(--space-3) var(--space-2);color:#78766E;font-size:var(--fs-xs);
+  font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.nav a{position:relative;display:flex;align-items:center;gap:var(--space-3);padding:10px var(--space-3);
+  border-radius:9px;color:var(--ink-fg-muted);text-decoration:none;font-size:var(--fs-base);font-weight:500;min-height:42px}
+.nav a:hover{background:rgba(255,255,255,.05);color:var(--ink-fg)}
+.nav a .ic{color:#8B897F}
+.nav a:hover .ic{color:var(--ink-fg)}
+.nav a[aria-current="page"]{background:rgba(255,255,255,.06);color:#fff;font-weight:600}
+.nav a[aria-current="page"] .ic{color:var(--brand)}
+.nav a[aria-current="page"]::before{content:"";position:absolute;left:-var(--space-3);left:calc(-1 * var(--space-3));
+  top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+.nav a .badge{margin-left:auto;font-size:var(--fs-xs);font-weight:700;background:var(--pill-danger-bg);
+  color:var(--pill-danger-fg);padding:1px 7px;border-radius:var(--radius-full);min-width:22px;text-align:center}
+.sidebar__foot{margin-top:auto;padding:var(--space-4) var(--space-4) var(--space-5);border-top:1px solid var(--ink-line)}
+.sync-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:42px;
+  border:1px solid var(--ink-line);background:rgba(255,255,255,.04);color:var(--ink-fg);
+  border-radius:var(--radius-md);font-size:var(--fs-sm);font-weight:600;cursor:pointer}
+.sync-btn:hover{background:rgba(255,255,255,.09)}
+.sync-btn:focus-visible{box-shadow:0 0 0 3px var(--brand-ring)}
+.sync-meta{display:flex;align-items:center;gap:6px;margin-top:var(--space-3);color:#7C7A72;font-size:var(--fs-xs)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--pill-ok-dot);box-shadow:0 0 0 3px rgba(30,158,90,.18)}
+
+/* ---- 6. MAIN ---- */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow-y:auto;background:var(--bg);scroll-behavior:smooth}
+.main::-webkit-scrollbar{width:10px;height:10px}
+.main::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:2px solid var(--bg)}
+
+/* topbar mobile — só aparece no container estreito */
+.m-topbar{display:none}
+
+.workspace{padding:var(--space-8) var(--space-8) var(--space-12);max-width:1180px;width:100%;margin:0 auto}
+
+/* cabeçalho de seção — hierarquia forte e única */
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-5)}
+.section-head h2{margin:0;font-size:var(--fs-xl);font-weight:700;letter-spacing:-.015em;line-height:var(--lh-tight)}
+.section-head .eyebrow{display:block;font-size:var(--fs-xs);font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-subtle);margin-bottom:var(--space-2)}
+.section-head p{margin:var(--space-1) 0 0;color:var(--text-muted);font-size:var(--fs-sm)}
+.section + .section{margin-top:var(--space-12)}
+
+/* ---- 7. KPIs ---- */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--space-4)}
+.kpi{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-3);box-shadow:var(--shadow-sm);
+  animation:rise .5s cubic-bezier(.22,.61,.36,1) both}
+.kpi:nth-child(1){animation-delay:.02s}.kpi:nth-child(2){animation-delay:.06s}
+.kpi:nth-child(3){animation-delay:.10s}.kpi:nth-child(4){animation-delay:.14s}.kpi:nth-child(5){animation-delay:.18s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.kpi{animation:none}}
+.kpi__top{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)}
+.kpi__label{font-size:var(--fs-xs);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.kpi__ic{width:32px;height:32px;flex:none;border-radius:8px;display:grid;place-items:center;
+  background:var(--surface-3);color:var(--text-muted)}
+.kpi__ic .ic{width:18px;height:18px}
+.kpi__value{font-size:var(--fs-3xl);font-weight:700;line-height:1;letter-spacing:-.02em}
+.kpi__foot{font-size:var(--fs-sm);color:var(--text-muted);display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap}
+.kpi--accent .kpi__ic{background:var(--pill-danger-bg);color:var(--pill-danger-fg)}
+.kpi--accent .kpi__value{color:var(--text)}
+.mini{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-xs);font-weight:600;
+  padding:2px 8px;border-radius:var(--radius-full);background:var(--surface-3);color:var(--text-muted)}
+.mini b{color:var(--text);font-weight:700}
+
+/* ---- 8. TOOLBAR / FILTROS (sistema único) ---- */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);overflow:hidden}
+.toolbar{display:flex;align-items:flex-end;gap:var(--space-3);flex-wrap:wrap;padding:var(--space-4) var(--space-5);
+  border-bottom:1px solid var(--border);background:var(--surface)}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field > label{font-size:var(--fs-xs);font-weight:600;color:var(--text-muted);letter-spacing:.01em;padding-left:2px}
+.control{height:40px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);
+  border-radius:var(--radius-md);padding:0 var(--space-3);font-size:var(--fs-sm);min-width:0;width:100%}
+.control::placeholder{color:var(--text-subtle)}
+.control:hover{border-color:var(--text-subtle)}
+.control:focus-visible{border-color:var(--brand);box-shadow:var(--focus)}
+.field--search{position:relative}
+.field--search .ic{position:absolute;left:11px;bottom:11px;color:var(--text-subtle);pointer-events:none}
+.field--search .control{padding-left:36px}
+.select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2367665F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6l6 -6'/></svg>");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;cursor:pointer}
+.w-serial{flex:1 1 190px}.w-md{flex:0 1 150px}.w-evt{flex:1 1 190px}
+.toolbar__spacer{flex:1 1 auto}
+.toolbar__actions{display:flex;align-items:center;gap:var(--space-2);align-self:flex-end}
+
+/* ---- 9. BOTÕES (um sistema: .btn + variantes) ---- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);height:40px;padding:0 var(--space-4);
+  border-radius:var(--radius-md);font-size:var(--fs-sm);font-weight:600;border:1px solid transparent;cursor:pointer;
+  white-space:nowrap;transition:background .12s ease,border-color .12s ease,color .12s ease}
+.btn .ic{width:17px;height:17px}
+.btn--primary{background:var(--brand);color:#fff;box-shadow:0 1px 2px rgba(199,22,12,.35)}
+.btn--primary:hover{background:var(--brand-hover)}
+.btn--primary:active{background:var(--brand-press)}
+.btn--secondary{background:var(--surface);color:var(--text);border-color:var(--border-strong)}
+.btn--secondary:hover{border-color:var(--text-subtle);background:var(--surface-3)}
+.btn--ghost{background:transparent;color:var(--text-muted)}
+.btn--ghost:hover{background:var(--surface-3);color:var(--text)}
+.btn--sm{height:34px;padding:0 var(--space-3);font-size:var(--fs-xs)}
+.btn:focus-visible{box-shadow:var(--focus)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* ---- 10. TABELA (sistema único) ---- */
+.table-scroll{overflow:auto;max-height:430px}
+.table-scroll::-webkit-scrollbar{width:10px;height:10px}
+.table-scroll::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;border:2px solid var(--surface)}
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--fs-sm);min-width:940px}
+.tbl thead th{position:sticky;top:0;z-index:2;background:var(--ink);color:var(--ink-fg);text-align:left;
+  font-weight:600;font-size:var(--fs-xs);letter-spacing:.03em;text-transform:uppercase;padding:12px var(--space-4);
+  white-space:nowrap;border-bottom:1px solid var(--ink-2)}
+.tbl thead th:first-child{padding-left:var(--space-5)}
+.tbl thead th.num{text-align:right}
+.tbl tbody td{padding:13px var(--space-4);border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text)}
+.tbl tbody td:first-child{padding-left:var(--space-5)}
+.tbl tbody tr{background:var(--surface)}
+.tbl tbody tr:nth-child(even){background:var(--surface-2)}
+.tbl tbody tr:hover{background:var(--surface-3)}
+.tbl tbody tr:last-child td{border-bottom:0}
+.cell-idx{color:var(--text-subtle);font-variant-numeric:tabular-nums;text-align:right;width:40px}
+.cell-model{font-weight:600}
+.cell-serial{font-variant-numeric:tabular-nums;letter-spacing:.01em;color:var(--text);white-space:nowrap}
+.cell-empresa{color:var(--text-muted)}
+.cell-evt-id{font-variant-numeric:tabular-nums;color:var(--text-muted)}
+.cell-evt-name{color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell-date{font-variant-numeric:tabular-nums;white-space:nowrap}
+.cell-obs{color:var(--text-muted);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cell-status .select{height:34px;font-size:var(--fs-xs);min-width:118px}
+.dash{color:var(--text-subtle)}
+
+/* status inline select colorido por estado (mesma base .select) */
+.select--status{font-weight:600}
+
+/* ---- 11. PILLS (contraste AA, um sistema) ---- */
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:var(--radius-full);
+  font-size:var(--fs-xs);font-weight:600;line-height:1;white-space:nowrap;border:1px solid transparent}
+.pill .dot{width:6px;height:6px;border-radius:50%;flex:none}
+.pill--danger{background:var(--pill-danger-bg);color:var(--pill-danger-fg)}.pill--danger .dot{background:var(--pill-danger-dot)}
+.pill--warn{background:var(--pill-warn-bg);color:var(--pill-warn-fg)}.pill--warn .dot{background:var(--pill-warn-dot)}
+.pill--ok{background:var(--pill-ok-bg);color:var(--pill-ok-fg)}.pill--ok .dot{background:var(--pill-ok-dot)}
+.pill--info{background:var(--pill-info-bg);color:var(--pill-info-fg)}.pill--info .dot{background:var(--pill-info-dot)}
+.pill--neutral{background:var(--pill-neutral-bg);color:var(--pill-neutral-fg)}.pill--neutral .dot{background:var(--pill-neutral-dot)}
+.pill--muted{background:var(--pill-muted-bg);color:var(--pill-muted-fg);border-color:var(--pill-muted-border)}.pill--muted .dot{background:var(--pill-muted-fg)}
+
+/* ---- 12. EMPTY STATE (um sistema, reaproveitável) ---- */
+.empty{display:none;flex-direction:column;align-items:center;text-align:center;gap:var(--space-3);
+  padding:var(--space-12) var(--space-6)}
+.empty__ic{width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;
+  background:var(--surface-3);color:var(--text-subtle)}
+.empty__ic .ic{width:26px;height:26px}
+.empty h3{margin:0;font-size:var(--fs-md);font-weight:600}
+.empty p{margin:0;color:var(--text-muted);font-size:var(--fs-sm);max-width:34ch}
+.is-empty .table-scroll,.is-empty .card-list{display:none}
+.is-empty .empty{display:flex}
+
+/* ---- 13. CARD LIST (mobile) — escondido no desktop ---- */
+.card-list{display:none;flex-direction:column;gap:var(--space-3);padding:var(--space-4)}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);box-shadow:var(--shadow-sm)}
+.mcard__top{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3)}
+.mcard__serial{font-size:var(--fs-md);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.01em;line-height:1.2}
+.mcard__model{font-size:var(--fs-xs);color:var(--text-muted);margin-top:2px}
+.mcard__grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-2) var(--space-4);
+  font-size:var(--fs-sm);border-top:1px solid var(--border);padding-top:var(--space-3)}
+.mcard__grid .k{color:var(--text-subtle);font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.04em}
+.mcard__grid .v{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
+.mcard__foot{display:flex;align-items:center;gap:var(--space-2)}
+.mcard__foot .select{flex:1;height:40px}
+.mcard__foot .btn{flex:none}
+
+/* bottom nav (mobile) */
+.bottom-nav{display:none}
+
+/* ---- 14. DESIGN SYSTEM STRIP (documentação da direção) ---- */
+.ds{margin-top:var(--space-12);display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-4)}
+.ds-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-5);box-shadow:var(--shadow-sm)}
+.ds-card h3{margin:0 0 var(--space-4);font-size:var(--fs-sm);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.swatches{display:flex;flex-wrap:wrap;gap:var(--space-3)}
+.sw{display:flex;flex-direction:column;gap:6px;width:88px}
+.sw i{display:block;height:44px;border-radius:9px;border:1px solid var(--border)}
+.sw span{font-size:var(--fs-xs);color:var(--text-muted)}
+.sw code{font-size:11px;color:var(--text-subtle);font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.type-row{display:flex;align-items:baseline;gap:var(--space-4);padding:8px 0;border-bottom:1px dashed var(--border)}
+.type-row:last-child{border-bottom:0}
+.type-row .tag{width:66px;flex:none;font-size:11px;color:var(--text-subtle);font-family:ui-monospace,monospace}
+.space-row{display:flex;align-items:center;gap:var(--space-3);padding:6px 0}
+.space-row .bar{height:12px;background:var(--brand);border-radius:3px;opacity:.85}
+.space-row code{font-size:11px;color:var(--text-subtle);font-family:ui-monospace,monospace;width:120px}
+.pill-wrap,.btn-wrap{display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}
+.chk{display:flex;flex-direction:column;gap:var(--space-2);margin:0;padding:0;list-style:none}
+.chk li{display:flex;align-items:flex-start;gap:var(--space-2);font-size:var(--fs-sm);color:var(--text)}
+.chk li .ic{color:var(--pill-ok-fg);margin-top:1px}
+.chk li b{font-weight:600}
+
+/* ---- 15. RESPONSIVO (container queries — 2 breakpoints coordenados) ---- */
+/* md: <=1024 — filtros fluem, KPIs 3-col */
+@container app (max-width:1024px){
+  .kpi-grid{grid-template-columns:repeat(3,1fr)}
+  .kpi:nth-child(4),.kpi:nth-child(5){grid-column:span 1}
+  .workspace{padding:var(--space-6)}
+  .ds{grid-template-columns:1fr}
+}
+/* sm: <=720 — MODO MOBILE: sidebar->topbar+bottomnav, tabela->cards */
+@container app (max-width:720px){
+  .sidebar{display:none}
+  .m-topbar{display:flex;align-items:center;gap:var(--space-3);position:sticky;top:0;z-index:20;
+    background:var(--ink);color:var(--ink-fg);padding:var(--space-3) var(--space-4);min-height:56px}
+  .m-topbar .brand__mark{width:30px;height:30px}
+  .m-topbar__title{font-weight:700;font-size:var(--fs-md);color:var(--ink-fg)}
+  .m-topbar .m-btn{margin-left:auto;width:44px;height:44px;display:grid;place-items:center;border:0;
+    background:transparent;color:var(--ink-fg);border-radius:9px;cursor:pointer}
+  .m-topbar .m-btn:hover{background:rgba(255,255,255,.08)}
+  .workspace{padding:var(--space-5) var(--space-4) 92px}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);gap:var(--space-3)}
+  .kpi{padding:var(--space-4)}
+  .kpi__value{font-size:var(--fs-2xl)}
+  .kpi:nth-child(5){grid-column:span 2}
+  .section-head h2{font-size:var(--fs-lg)}
+  .section + .section{margin-top:var(--space-8)}
+
+  /* filtros compactos: busca + botões roláveis, alvos 44px */
+  .toolbar{padding:var(--space-3) var(--space-4);gap:var(--space-2)}
+  .field--search{flex:1 1 100%}
+  .w-md,.w-evt{display:none}
+  .control,.select{height:44px}
+  .toolbar__actions{width:100%;justify-content:space-between}
+  .btn{height:44px}
+
+  /* troca tabela -> cards */
+  .table-scroll{display:none}
+  .card-list{display:flex}
+  .panel{border-radius:var(--radius-lg)}
+
+  /* bottom nav */
+  .bottom-nav{display:flex;position:sticky;bottom:0;z-index:20;background:var(--ink);
+    border-top:1px solid var(--ink-line);padding:6px 6px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  .bottom-nav a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    min-height:52px;text-decoration:none;color:var(--ink-fg-muted);font-size:10px;font-weight:600;
+    letter-spacing:.02em;border-radius:10px;padding:4px 2px}
+  .bottom-nav a .ic{width:22px;height:22px}
+  .bottom-nav a:hover{color:var(--ink-fg)}
+  .bottom-nav a[aria-current="page"]{color:#fff}
+  .bottom-nav a[aria-current="page"] .ic{color:var(--brand)}
+}
+
+/* fallback por viewport (quando a página inteira é estreita) */
+@media (max-width:640px){
+  .shell{padding:var(--space-5) var(--space-3) var(--space-12)}
+  .app,.app.is-phone{height:760px}
+  .doc-head{gap:var(--space-4)}
+}
+</style>
+</head>
+<body>
+
+<!-- SPRITE DE ÍCONES (Tabler outline, inline, stroke=currentColor) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></symbol>
+  <symbol id="i-pos" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M7 15h3"/><circle cx="16.5" cy="15" r="1"/></symbol>
+  <symbol id="i-transfer" viewBox="0 0 24 24"><path d="M20 10H4l4-4"/><path d="M4 14h16l-4 4"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 20v-5h5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.24 4.03 2.42 17.7A2 2 0 0 0 4.15 20.7h15.7a2 2 0 0 0 1.73-3l-7.82-13.67a2 2 0 0 0-3.52 0z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4 7 17M17 7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6.4 6.4 0 0 0 9 9 9 9 0 1 1-9-9z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M21 21l-5.6-5.6"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 11l5 5 5-5"/><path d="M12 4v12"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M6 4h9l5 5v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M14 4v4H8V4"/><circle cx="12" cy="14" r="2.2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 4h6M10 4l1 7-3 2 4 0 4 0-3-2 1-7"/><path d="M12 13v7"/></symbol>
+</svg>
+
+<div class="shell">
+
+  <!-- CHROME DE APRESENTAÇÃO -->
+  <header class="doc-head">
+    <div>
+      <div class="doc-head__id">
+        <span class="doc-badge">Direção A</span>
+        <h1>Operacional Limpa</h1>
+      </div>
+      <p>Espaçosa, calma e data-first. Hierarquia tipográfica forte, densidade confortável e Blood Orange reservado só para ação primária, item ativo e foco.</p>
+    </div>
+    <div class="doc-controls">
+      <div class="seg" role="group" aria-label="Pré-visualização de dispositivo">
+        <button id="segDesktop" aria-pressed="true">Desktop</button>
+        <button id="segMobile" aria-pressed="false">Mobile 375</button>
+      </div>
+      <button class="icon-toggle" id="themeToggle" aria-label="Alternar tema claro/escuro" title="Alternar tema">
+        <svg class="ic i-sun"><use href="#i-sun"/></svg>
+        <svg class="ic i-moon"><use href="#i-moon"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- STAGE + APP -->
+  <div class="stage">
+    <div class="app is-desktop" id="app">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand__mark"><svg class="ic"><use href="#i-pos"/></svg></span>
+          <span class="brand__name"><b>Maquininhas</b><span>Controle · PagSeguro</span></span>
+        </div>
+        <nav class="nav" aria-label="Navegação principal">
+          <a href="#"><svg class="ic"><use href="#i-dash"/></svg>Dashboard</a>
+          <a href="#" aria-current="page"><svg class="ic"><use href="#i-pos"/></svg>Máquinas Cadastradas</a>
+          <a href="#"><svg class="ic"><use href="#i-transfer"/></svg>Envio / Retorno</a>
+          <a href="#"><svg class="ic"><use href="#i-history"/></svg>Histórico</a>
+          <a href="#"><svg class="ic"><use href="#i-alert"/></svg>Exceções<span class="badge">125</span></a>
+        </nav>
+        <div class="sidebar__foot">
+          <button class="sync-btn" type="button"><svg class="ic ic--sm"><use href="#i-refresh"/></svg>Sincronizar</button>
+          <div class="sync-meta"><span class="sync-dot"></span>Última: 11/07 09:42</div>
+        </div>
+      </aside>
+
+      <!-- MAIN -->
+      <div class="main">
+
+        <!-- topbar só-mobile -->
+        <div class="m-topbar">
+          <span class="brand__mark"><svg class="ic"><use href="#i-pos"/></svg></span>
+          <span class="m-topbar__title">Cadastradas</span>
+          <button class="m-btn" aria-label="Menu"><svg class="ic"><use href="#i-menu"/></svg></button>
+        </div>
+
+        <div class="workspace">
+
+          <!-- ============ DASHBOARD ============ -->
+          <section class="section" aria-labelledby="h-dash">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Visão geral</span>
+                <h2 id="h-dash">Dashboard</h2>
+              </div>
+            </div>
+            <div class="kpi-grid">
+              <div class="kpi">
+                <div class="kpi__top"><span class="kpi__label">Total</span><span class="kpi__ic"><svg class="ic"><use href="#i-box"/></svg></span></div>
+                <div class="kpi__value tnum">552</div>
+                <div class="kpi__foot">Parque completo</div>
+              </div>
+              <div class="kpi">
+                <div class="kpi__top"><span class="kpi__label">Disponíveis</span><span class="kpi__ic"><svg class="ic"><use href="#i-check"/></svg></span></div>
+                <div class="kpi__value tnum">77</div>
+                <div class="kpi__foot">
+                  <span class="mini">SP <b>50</b></span>
+                  <span class="mini">RJ <b>24</b></span>
+                  <span class="mini">URA <b>3</b></span>
+                </div>
+              </div>
+              <div class="kpi">
+                <div class="kpi__top"><span class="kpi__label">Em uso</span><span class="kpi__ic"><svg class="ic"><use href="#i-transfer"/></svg></span></div>
+                <div class="kpi__value tnum">475</div>
+                <div class="kpi__foot">Em eventos ativos</div>
+              </div>
+              <div class="kpi kpi--accent">
+                <div class="kpi__top"><span class="kpi__label">Atrasadas</span><span class="kpi__ic"><svg class="ic"><use href="#i-alert"/></svg></span></div>
+                <div class="kpi__value tnum">125</div>
+                <div class="kpi__foot"><span class="pill pill--danger"><span class="dot"></span>Retorno vencido</span></div>
+              </div>
+              <div class="kpi">
+                <div class="kpi__top"><span class="kpi__label">Fixas</span><span class="kpi__ic"><svg class="ic"><use href="#i-pin"/></svg></span></div>
+                <div class="kpi__value tnum">169</div>
+                <div class="kpi__foot">Instalação permanente</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ============ MÁQUINAS CADASTRADAS ============ -->
+          <section class="section" aria-labelledby="h-cad">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Inventário</span>
+                <h2 id="h-cad">Máquinas Cadastradas</h2>
+                <p><span id="rowCount">6</span> máquinas · edite Status, Situação e Retorno direto na linha.</p>
+              </div>
+            </div>
+
+            <div class="panel" id="tablePanel">
+              <!-- FILTROS (sistema único) -->
+              <div class="toolbar" role="search">
+                <div class="field field--search w-serial">
+                  <label for="fSerial">Serial</label>
+                  <svg class="ic ic--sm"><use href="#i-search"/></svg>
+                  <input class="control" id="fSerial" type="text" placeholder="Buscar por nº de série" autocomplete="off">
+                </div>
+                <div class="field w-md">
+                  <label for="fStatus">Status</label>
+                  <select class="control select" id="fStatus"><option>Todos</option><option>Disponível</option><option>Em uso</option><option>Fixo</option><option>Manutenção</option></select>
+                </div>
+                <div class="field w-md">
+                  <label for="fSit">Situação</label>
+                  <select class="control select" id="fSit"><option>Todas</option><option>Atrasado</option><option>Vence hoje</option><option>Dentro do prazo</option><option>Disponível</option><option>Fixo</option><option>Sem data</option></select>
+                </div>
+                <div class="field w-md">
+                  <label for="fEmp">Empresa</label>
+                  <select class="control select" id="fEmp"><option>Todas</option><option>Ingresse</option><option>Meep</option></select>
+                </div>
+                <div class="field field--search w-evt">
+                  <label for="fEvt">Evento</label>
+                  <svg class="ic ic--sm"><use href="#i-search"/></svg>
+                  <input class="control" id="fEvt" type="text" placeholder="ID ou nome do evento" autocomplete="off">
+                </div>
+                <div class="field w-md">
+                  <label for="fRet">Retorno</label>
+                  <select class="control select" id="fRet"><option>Qualquer</option><option>Atrasado</option><option>Hoje</option><option>Próx. 7 dias</option><option>Sem data</option></select>
+                </div>
+                <div class="toolbar__spacer"></div>
+                <div class="toolbar__actions">
+                  <button class="btn btn--ghost" id="btnClear" type="button"><svg class="ic ic--sm"><use href="#i-x"/></svg>Limpar</button>
+                  <button class="btn btn--secondary" type="button"><svg class="ic ic--sm"><use href="#i-download"/></svg>Exportar Excel</button>
+                </div>
+              </div>
+
+              <!-- TABELA (desktop) -->
+              <div class="table-scroll">
+                <table class="tbl">
+                  <thead>
+                    <tr>
+                      <th class="num">#</th><th>Modelo</th><th>Nº Serial</th><th>Status</th><th>Situação</th>
+                      <th>Empresa</th><th>ID Evento</th><th>Nome Evento</th><th>Data Retorno</th><th>Obs</th><th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody">
+                    <tr data-serial="pba1226170136" data-evt="70785 vila sitio sao joao 2026">
+                      <td class="cell-idx">1</td>
+                      <td class="cell-model">Moderninha Smart 2</td>
+                      <td class="cell-serial">PBA1226170136</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--danger"><span class="dot"></span>Atrasado</span></td>
+                      <td class="cell-empresa">Ingresse</td>
+                      <td class="cell-evt-id">70785</td>
+                      <td class="cell-evt-name">Vila Sítio São João 2026</td>
+                      <td class="cell-date">08/07/2026</td>
+                      <td class="cell-obs" title="Aguardando devolução">Aguardando devolução</td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                    <tr data-serial="1170415893" data-evt="70790 atletica med 2026">
+                      <td class="cell-idx">2</td>
+                      <td class="cell-model">Moderninha Smart 2</td>
+                      <td class="cell-serial">1170415893</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--warn"><span class="dot"></span>Vence hoje</span></td>
+                      <td class="cell-empresa">Ingresse</td>
+                      <td class="cell-evt-id">70790</td>
+                      <td class="cell-evt-name">Atlética Med 2026</td>
+                      <td class="cell-date">11/07/2026</td>
+                      <td class="cell-obs"><span class="dash">—</span></td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                    <tr data-serial="pba1226170988" data-evt="70801 festa junina central">
+                      <td class="cell-idx">3</td>
+                      <td class="cell-model">Moderninha Pro 2</td>
+                      <td class="cell-serial">PBA1226170988</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--ok"><span class="dot"></span>Dentro do prazo</span></td>
+                      <td class="cell-empresa">Meep</td>
+                      <td class="cell-evt-id">70801</td>
+                      <td class="cell-evt-name">Festa Junina Central</td>
+                      <td class="cell-date">13/07/2026</td>
+                      <td class="cell-obs" title="Kit completo">Kit completo</td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                    <tr data-serial="pb3s22140099" data-evt="">
+                      <td class="cell-idx">4</td>
+                      <td class="cell-model">Moderninha Smart 2</td>
+                      <td class="cell-serial">PB3S22140099</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Disponível</option><option>Em uso</option><option>Fixo</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--info"><span class="dot"></span>Disponível</span></td>
+                      <td class="cell-empresa">Ingresse</td>
+                      <td class="cell-evt-id"><span class="dash">—</span></td>
+                      <td class="cell-evt-name"><span class="dash">—</span></td>
+                      <td class="cell-date"><span class="dash">—</span></td>
+                      <td class="cell-obs"><span class="dash">—</span></td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                    <tr data-serial="1170988712" data-evt="70808 bar do estadio fixa">
+                      <td class="cell-idx">5</td>
+                      <td class="cell-model">Moderninha Pro 2</td>
+                      <td class="cell-serial">1170988712</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Fixo</option><option>Em uso</option><option>Disponível</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--neutral"><span class="dot"></span>Fixo</span></td>
+                      <td class="cell-empresa">Ingresse</td>
+                      <td class="cell-evt-id">70808</td>
+                      <td class="cell-evt-name">Bar do Estádio (fixa)</td>
+                      <td class="cell-date"><span class="dash">—</span></td>
+                      <td class="cell-obs" title="Instalação fixa">Instalação fixa</td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                    <tr data-serial="pba1226171450" data-evt="70795 arraia do vale">
+                      <td class="cell-idx">6</td>
+                      <td class="cell-model">Moderninha Smart 2</td>
+                      <td class="cell-serial">PBA1226171450</td>
+                      <td class="cell-status"><select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option><option>Manutenção</option></select></td>
+                      <td><span class="pill pill--muted"><span class="dot"></span>Sem data</span></td>
+                      <td class="cell-empresa">Meep</td>
+                      <td class="cell-evt-id">70795</td>
+                      <td class="cell-evt-name">Arraiá do Vale</td>
+                      <td class="cell-date"><span class="dash">—</span></td>
+                      <td class="cell-obs" title="Sem retorno definido">Sem retorno definido</td>
+                      <td><button class="btn btn--primary btn--sm"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- CARDS (mobile, mesma data) -->
+              <div class="card-list" id="cardList">
+                <article class="mcard" data-serial="pba1226170136" data-evt="70785 vila sitio sao joao 2026">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">PBA1226170136</div><div class="mcard__model">Moderninha Smart 2 · Ingresse</div></div>
+                    <span class="pill pill--danger"><span class="dot"></span>Atrasado</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">Vila Sítio São João</div></div>
+                    <div><div class="k">ID</div><div class="v">70785</div></div>
+                    <div><div class="k">Retorno</div><div class="v">08/07/2026</div></div>
+                    <div><div class="k">Obs</div><div class="v">Aguardando devol.</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+                <article class="mcard" data-serial="1170415893" data-evt="70790 atletica med 2026">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">1170415893</div><div class="mcard__model">Moderninha Smart 2 · Ingresse</div></div>
+                    <span class="pill pill--warn"><span class="dot"></span>Vence hoje</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">Atlética Med 2026</div></div>
+                    <div><div class="k">ID</div><div class="v">70790</div></div>
+                    <div><div class="k">Retorno</div><div class="v">11/07/2026</div></div>
+                    <div><div class="k">Obs</div><div class="v">—</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+                <article class="mcard" data-serial="pba1226170988" data-evt="70801 festa junina central">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">PBA1226170988</div><div class="mcard__model">Moderninha Pro 2 · Meep</div></div>
+                    <span class="pill pill--ok"><span class="dot"></span>Dentro do prazo</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">Festa Junina Central</div></div>
+                    <div><div class="k">ID</div><div class="v">70801</div></div>
+                    <div><div class="k">Retorno</div><div class="v">13/07/2026</div></div>
+                    <div><div class="k">Obs</div><div class="v">Kit completo</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+                <article class="mcard" data-serial="pb3s22140099" data-evt="">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">PB3S22140099</div><div class="mcard__model">Moderninha Smart 2 · Ingresse</div></div>
+                    <span class="pill pill--info"><span class="dot"></span>Disponível</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">—</div></div>
+                    <div><div class="k">ID</div><div class="v">—</div></div>
+                    <div><div class="k">Retorno</div><div class="v">—</div></div>
+                    <div><div class="k">Obs</div><div class="v">—</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Disponível</option><option>Em uso</option><option>Fixo</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+                <article class="mcard" data-serial="1170988712" data-evt="70808 bar do estadio fixa">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">1170988712</div><div class="mcard__model">Moderninha Pro 2 · Ingresse</div></div>
+                    <span class="pill pill--neutral"><span class="dot"></span>Fixo</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">Bar do Estádio</div></div>
+                    <div><div class="k">ID</div><div class="v">70808</div></div>
+                    <div><div class="k">Retorno</div><div class="v">—</div></div>
+                    <div><div class="k">Obs</div><div class="v">Instalação fixa</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Fixo</option><option>Em uso</option><option>Disponível</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+                <article class="mcard" data-serial="pba1226171450" data-evt="70795 arraia do vale">
+                  <div class="mcard__top">
+                    <div><div class="mcard__serial">PBA1226171450</div><div class="mcard__model">Moderninha Smart 2 · Meep</div></div>
+                    <span class="pill pill--muted"><span class="dot"></span>Sem data</span>
+                  </div>
+                  <div class="mcard__grid">
+                    <div><div class="k">Evento</div><div class="v">Arraiá do Vale</div></div>
+                    <div><div class="k">ID</div><div class="v">70795</div></div>
+                    <div><div class="k">Retorno</div><div class="v">—</div></div>
+                    <div><div class="k">Obs</div><div class="v">Sem retorno def.</div></div>
+                  </div>
+                  <div class="mcard__foot">
+                    <select class="control select select--status"><option>Em uso</option><option>Disponível</option><option>Fixo</option></select>
+                    <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  </div>
+                </article>
+              </div>
+
+              <!-- EMPTY STATE (um sistema, reaproveitável) -->
+              <div class="empty">
+                <div class="empty__ic"><svg class="ic"><use href="#i-search"/></svg></div>
+                <h3>Nenhuma máquina encontrada</h3>
+                <p>Ajuste os filtros ou limpe a busca para ver todas as 552 máquinas do parque.</p>
+                <button class="btn btn--secondary btn--sm" id="btnClear2" type="button"><svg class="ic ic--sm"><use href="#i-x"/></svg>Limpar filtros</button>
+              </div>
+            </div>
+
+            <!-- DOCUMENTAÇÃO DA DIREÇÃO -->
+            <div class="ds">
+              <div class="ds-card">
+                <h3>Paleta &amp; superfícies</h3>
+                <div class="swatches">
+                  <div class="sw"><i style="background:#FF271A"></i><span>Ação primária</span><code>#FF271A</code></div>
+                  <div class="sw"><i style="background:#1A1A1A"></i><span>Tinta / header</span><code>#1A1A1A</code></div>
+                  <div class="sw"><i style="background:var(--surface)"></i><span>Superfície</span><code>--surface</code></div>
+                  <div class="sw"><i style="background:var(--bg)"></i><span>Fundo</span><code>--bg</code></div>
+                </div>
+              </div>
+              <div class="ds-card">
+                <h3>Situação — pills AA</h3>
+                <div class="pill-wrap">
+                  <span class="pill pill--danger"><span class="dot"></span>Atrasado</span>
+                  <span class="pill pill--warn"><span class="dot"></span>Vence hoje</span>
+                  <span class="pill pill--ok"><span class="dot"></span>Dentro do prazo</span>
+                  <span class="pill pill--info"><span class="dot"></span>Disponível</span>
+                  <span class="pill pill--neutral"><span class="dot"></span>Fixo</span>
+                  <span class="pill pill--muted"><span class="dot"></span>Sem data</span>
+                </div>
+              </div>
+              <div class="ds-card">
+                <h3>Escala tipográfica · Inter</h3>
+                <div class="type-row"><span class="tag">3xl / 44</span><span style="font-size:var(--fs-2xl);font-weight:700;letter-spacing:-.02em">552</span></div>
+                <div class="type-row"><span class="tag">xl / 24</span><span style="font-size:var(--fs-xl);font-weight:700;letter-spacing:-.01em">Título de seção</span></div>
+                <div class="type-row"><span class="tag">base / 14</span><span style="font-size:var(--fs-base)">Corpo e dados da tabela</span></div>
+                <div class="type-row"><span class="tag">xs / 12</span><span style="font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Rótulo / eyebrow</span></div>
+              </div>
+              <div class="ds-card">
+                <h3>Botões · sistema único</h3>
+                <div class="btn-wrap">
+                  <button class="btn btn--primary"><svg class="ic ic--sm"><use href="#i-save"/></svg>Salvar</button>
+                  <button class="btn btn--secondary"><svg class="ic ic--sm"><use href="#i-download"/></svg>Secundário</button>
+                  <button class="btn btn--ghost"><svg class="ic ic--sm"><use href="#i-x"/></svg>Ghost</button>
+                </div>
+                <div style="height:1px;background:var(--border);margin:var(--space-4) 0"></div>
+                <div class="space-row"><code>--space-2 · 8</code><span class="bar" style="width:8px"></span></div>
+                <div class="space-row"><code>--space-4 · 16</code><span class="bar" style="width:16px"></span></div>
+                <div class="space-row"><code>--space-6 · 24</code><span class="bar" style="width:24px"></span></div>
+                <div class="space-row"><code>--space-8 · 32</code><span class="bar" style="width:32px"></span></div>
+              </div>
+              <div class="ds-card" style="grid-column:1/-1">
+                <h3>Checklist da direção</h3>
+                <ul class="chk">
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Contraste AA</b> em todas as pills (fundo + texto tokenizados) e textos.</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Foco visível</b> (<code>:focus-visible</code>) em inputs, selects e botões — anel Blood Orange.</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Alvos ≥44px</b> no mobile (campos, botões e itens da bottom-nav).</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Um só sistema</b> de tabela, filtro, botão, pill e empty-state.</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Tokens</b> de espaçamento (<code>--space-*</code>) e escala tipográfica; radius padronizado.</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>2–3 breakpoints coordenados</b> via container queries (≤720 mobile · ≤1024 médio).</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Dark mode sem duplicação</b>: componentes leem tokens; só os valores mudam por tema.</span></li>
+                  <li><svg class="ic ic--sm"><use href="#i-check"/></svg><span><b>Tabela → cards</b> no mobile: serial em destaque, situação em pill, ação clara.</span></li>
+                </ul>
+              </div>
+            </div>
+
+          </section>
+        </div><!-- /workspace -->
+
+        <!-- bottom nav só-mobile -->
+        <nav class="bottom-nav" aria-label="Navegação mobile">
+          <a href="#"><svg class="ic"><use href="#i-dash"/></svg>Início</a>
+          <a href="#" aria-current="page"><svg class="ic"><use href="#i-pos"/></svg>Máquinas</a>
+          <a href="#"><svg class="ic"><use href="#i-transfer"/></svg>Envio</a>
+          <a href="#"><svg class="ic"><use href="#i-history"/></svg>Histórico</a>
+          <a href="#"><svg class="ic"><use href="#i-alert"/></svg>Exceções</a>
+        </nav>
+
+      </div><!-- /main -->
+    </div><!-- /app -->
+  </div><!-- /stage -->
+</div><!-- /shell -->
+
+<script>
+(function(){
+  var root = document.documentElement;
+  var app  = document.getElementById('app');
+
+  /* --- tema (persistente) --- */
+  var savedTheme = localStorage.getItem('mq-theme');
+  if(savedTheme){ root.setAttribute('data-theme', savedTheme); }
+  document.getElementById('themeToggle').addEventListener('click', function(){
+    var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('mq-theme', next);
+  });
+
+  /* --- preview desktop/mobile (persistente) via largura do container --- */
+  var segD = document.getElementById('segDesktop');
+  var segM = document.getElementById('segMobile');
+  function setDevice(mode){
+    var phone = mode === 'phone';
+    app.classList.toggle('is-phone', phone);
+    app.classList.toggle('is-desktop', !phone);
+    segM.setAttribute('aria-pressed', phone ? 'true':'false');
+    segD.setAttribute('aria-pressed', phone ? 'false':'true');
+    localStorage.setItem('mq-device', mode);
+  }
+  segD.addEventListener('click', function(){ setDevice('desktop'); });
+  segM.addEventListener('click', function(){ setDevice('phone'); });
+  setDevice(localStorage.getItem('mq-device') || 'desktop');
+
+  /* --- filtro de serial/evento -> filtra linhas + cards + empty-state (um sistema) --- */
+  var fSerial = document.getElementById('fSerial');
+  var fEvt    = document.getElementById('fEvt');
+  var panel   = document.getElementById('tablePanel');
+  var rows    = Array.prototype.slice.call(document.querySelectorAll('#tbody tr'));
+  var cards   = Array.prototype.slice.call(document.querySelectorAll('#cardList .mcard'));
+  var counter = document.getElementById('rowCount');
+
+  function applyFilter(){
+    var s = (fSerial.value||'').trim().toLowerCase();
+    var e = (fEvt.value||'').trim().toLowerCase();
+    var shown = 0;
+    function match(el){
+      var ser = el.getAttribute('data-serial')||'';
+      var evt = el.getAttribute('data-evt')||'';
+      return (s==='' || ser.indexOf(s)>-1) && (e==='' || evt.indexOf(e)>-1);
+    }
+    rows.forEach(function(r){ var ok=match(r); r.style.display = ok?'':'none'; if(ok) shown++; });
+    cards.forEach(function(c){ c.style.display = match(c)?'':'none'; });
+    counter.textContent = shown;
+    panel.classList.toggle('is-empty', shown===0);
+  }
+  fSerial.addEventListener('input', applyFilter);
+  fEvt.addEventListener('input', applyFilter);
+
+  function clearFilters(){
+    fSerial.value=''; fEvt.value='';
+    document.getElementById('fStatus').selectedIndex=0;
+    document.getElementById('fSit').selectedIndex=0;
+    document.getElementById('fEmp').selectedIndex=0;
+    document.getElementById('fRet').selectedIndex=0;
+    applyFilter();
+  }
+  document.getElementById('btnClear').addEventListener('click', clearFilters);
+  document.getElementById('btnClear2').addEventListener('click', clearFilters);
+})();
+</script>
+</body>
+</html>

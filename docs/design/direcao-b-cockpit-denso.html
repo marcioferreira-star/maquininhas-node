@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Maquininhas · Direção B — Cockpit Denso</title>
+
+<!-- Pré-paint: resolve o tema (localStorage OU preferência do SO) para um atributo
+     EXPLÍCITO antes do primeiro paint. Assim o CSS tem UM único bloco escuro
+     ([data-theme="dark"]) — sem duplicar tokens com @media prefers-color-scheme. -->
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("mkq-theme");
+      if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { document.documentElement.setAttribute("data-theme", "light"); }
+  })();
+</script>
+
+<style>
+/* =====================================================================
+   DESIGN TOKENS — Direção B "Cockpit Denso"
+   Identidade Ingresse: Blood Orange (#FF271A) + preto (#1A1A1A) + neutros.
+   Dark mode em UM bloco só ([data-theme="dark"]) — zero duplicação.
+   ===================================================================== */
+:root{
+  /* Marca */
+  --brand:#FF271A;        --brand-strong:#D91E13;   --brand-weak:rgba(255,39,26,.12);
+  --on-brand:#ffffff;     --ink:#1A1A1A;
+
+  /* Neutros (light) */
+  --bg:#e9edf2;           --surface:#ffffff;        --surface-2:#f4f6f9;
+  --surface-3:#e7ecf2;    --line:#dbe1e9;           --line-strong:#c6cfda;
+  --text:#1c2128;         --text-2:#57616d;         --muted:#7b8593;
+
+  /* Sidebar — superfície preta constante nos dois temas */
+  --side-bg:#161819;      --side-fg:#e9eaec;        --side-muted:#8a9099;
+  --side-line:rgba(255,255,255,.09);  --side-hover:rgba(255,255,255,.06);
+
+  /* Cabeçalho de tabela */
+  --thead-bg:#1f2227;     --thead-fg:#eef0f2;
+
+  /* Pills de Situação — todas AA (texto forte sobre tinta clara) */
+  --st-danger-bg:#fbe3e0; --st-danger-fg:#b21f14;
+  --st-warn-bg:#f8ebc3;   --st-warn-fg:#78580a;
+  --st-ok-bg:#d7efdc;     --st-ok-fg:#186a2f;
+  --st-info-bg:#dbeafa;   --st-info-fg:#1159a2;
+  --st-fixo-bg:#e6e2fb;   --st-fixo-fg:#5735c1;
+  --st-mute-bg:#e5e9f0;   --st-mute-fg:#495260;
+
+  /* Feedback / acentos */
+  --ok:#186a2f; --warn:#78580a; --danger:#c0392b; --danger-strong:#a5301f; --info:#1159a2; --violet:#6b4df0;
+
+  /* Espaçamento — base 4px */
+  --space-1:4px;  --space-2:8px;  --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+
+  /* Raios */
+  --r-sm:6px; --r:8px; --r-lg:12px; --r-pill:999px;
+
+  /* Escala tipográfica */
+  --fs-11:11px; --fs-12:12px; --fs-13:13px; --fs-14:14px;
+  --fs-16:16px; --fs-18:18px; --fs-22:22px; --fs-27:27px;
+
+  /* Fontes */
+  --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:"SFMono-Regular", ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  /* Elevação + foco */
+  --shadow-sm:0 1px 2px rgba(16,20,26,.06);
+  --shadow:0 4px 14px rgba(16,20,26,.10);
+  --shadow-lg:0 14px 36px rgba(16,20,26,.18);
+  --focus:var(--brand);
+  --focus-ring:0 0 0 3px rgba(255,39,26,.32);
+
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0f1215;           --surface:#181b20;        --surface-2:#1f242a;
+  --surface-3:#282e35;    --line:#2b323a;           --line-strong:#3a424d;
+  --text:#e7e9ec;         --text-2:#a9b1bc;         --muted:#7c8693;
+
+  --side-bg:#0d0f11;      --side-line:rgba(255,255,255,.08);
+
+  --thead-bg:#22262c;     --thead-fg:#eef0f2;
+
+  --st-danger-bg:rgba(255,86,74,.16); --st-danger-fg:#ff9c91;
+  --st-warn-bg:rgba(226,176,58,.16);  --st-warn-fg:#f0c766;
+  --st-ok-bg:rgba(52,190,110,.15);    --st-ok-fg:#76d492;
+  --st-info-bg:rgba(88,150,232,.17);  --st-info-fg:#8dbaf1;
+  --st-fixo-bg:rgba(150,120,255,.20); --st-fixo-fg:#bfacff;
+  --st-mute-bg:rgba(160,172,190,.15); --st-mute-fg:#adb6c3;
+
+  --ok:#76d492; --warn:#f0c766; --danger:#ff8a80; --info:#8dbaf1; --violet:#b3a2ff;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow:0 6px 18px rgba(0,0,0,.45);
+  --shadow-lg:0 16px 40px rgba(0,0,0,.6);
+  --focus-ring:0 0 0 3px rgba(255,39,26,.42);
+}
+
+/* ===== Reset enxuto ===== */
+*{ margin:0; padding:0; box-sizing:border-box; }
+html,body{ width:100%; }
+body{
+  font-family:var(--font);
+  background:
+    radial-gradient(1200px 500px at 100% -10%, rgba(255,39,26,.05), transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-size:var(--fs-14);
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+a{ color:inherit; }
+
+/* Foco visível — nítido, navegação por teclado (cockpit) */
+:where(a,button,input,select,[tabindex]):focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+  box-shadow:var(--focus-ring);
+  border-radius:var(--r-sm);
+}
+::selection{ background:var(--brand-weak); }
+
+/* ===== Chrome da apresentação (fora do produto) ===== */
+.spec{ max-width:1320px; margin:0 auto; padding:var(--space-6) var(--space-5) var(--space-4); }
+.spec-bar{
+  display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap;
+  padding:var(--space-3) var(--space-4);
+  background:var(--ink); color:#fff;
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow);
+}
+.spec-brand{ display:flex; align-items:center; gap:var(--space-3); min-width:0; }
+.spec-logo{
+  width:30px; height:30px; border-radius:8px; flex:0 0 auto;
+  background:var(--brand); color:#fff; display:grid; place-items:center; font-weight:800;
+  font-size:var(--fs-16); letter-spacing:-.03em;
+}
+.spec-brand b{ font-size:var(--fs-14); letter-spacing:.01em; }
+.spec-brand span{ display:block; font-size:var(--fs-11); color:#b9bdc2; font-weight:500; }
+.spec-actions{ margin-left:auto; display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; }
+
+/* Segmento Desktop / Mobile */
+.seg{ display:inline-flex; background:rgba(255,255,255,.08); border-radius:var(--r); padding:3px; gap:2px; }
+.seg button{
+  display:inline-flex; align-items:center; gap:6px;
+  border:0; background:transparent; color:#cfd2d6; cursor:pointer;
+  font:600 var(--fs-12)/1 var(--font); padding:7px 12px; border-radius:6px;
+}
+.seg button svg{ width:15px; height:15px; }
+.seg button[aria-pressed="true"]{ background:var(--brand); color:#fff; }
+.spec-note{ font-size:var(--fs-12); color:#a7abb1; }
+
+.spec-hint{
+  margin:var(--space-4) auto 0; max-width:1320px;
+  font-size:var(--fs-12); color:var(--text-2);
+  display:flex; gap:var(--space-2); align-items:center;
+}
+.spec-hint svg{ width:15px; height:15px; color:var(--brand); flex:0 0 auto; }
+
+/* ===== Palco + moldura do dispositivo ===== */
+.stage{ max-width:1320px; margin:0 auto; padding:var(--space-4) var(--space-5) var(--space-8); }
+
+.device{
+  /* CONTAINER de layout: os breakpoints reagem à largura DAQUI, não da janela.
+     Assim o botão "Mobile 375px" recria o mobile de verdade, com a mesma fonte de CSS. */
+  container-type:inline-size;
+  container-name:app;
+  width:100%;
+  margin:0 auto;
+  height:788px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:14px;
+  box-shadow:var(--shadow-lg);
+  overflow:hidden;
+  display:flex; flex-direction:column;
+  transition:border-radius .28s cubic-bezier(.2,.7,.2,1), box-shadow .28s;
+}
+.device.is-mobile{ width:375px; border-radius:26px; }
+
+.chrome{
+  height:38px; flex:0 0 auto;
+  display:flex; align-items:center; gap:8px;
+  padding:0 var(--space-4);
+  background:var(--surface-2);
+  border-bottom:1px solid var(--line);
+}
+.chrome i{ width:11px; height:11px; border-radius:50%; background:var(--line-strong); display:inline-block; }
+.chrome i:nth-child(1){ background:#ff5f57; } .chrome i:nth-child(2){ background:#febc2e; } .chrome i:nth-child(3){ background:#28c840; }
+.chrome .url{
+  margin-left:var(--space-3); flex:1; height:24px; border-radius:var(--r-pill);
+  background:var(--surface); border:1px solid var(--line);
+  display:flex; align-items:center; gap:6px; padding:0 12px;
+  font-size:var(--fs-11); color:var(--muted); font-family:var(--mono);
+  overflow:hidden; white-space:nowrap;
+}
+.chrome .url svg{ width:12px; height:12px; flex:0 0 auto; }
+.device.is-mobile .chrome{ border-radius:26px 26px 0 0; }
+
+/* ===== APP shell ===== */
+.app{ flex:1; min-height:0; display:flex; position:relative; }
+
+/* ---- Sidebar ---- */
+.sidebar{
+  width:212px; flex:0 0 212px; min-height:0;
+  background:var(--side-bg); color:var(--side-fg);
+  display:flex; flex-direction:column;
+  border-right:1px solid var(--side-line);
+}
+.side-logo{
+  display:flex; align-items:center; gap:10px;
+  padding:var(--space-4) var(--space-4);
+  border-bottom:1px solid var(--side-line);
+}
+.side-logo .mark{
+  width:28px; height:28px; border-radius:7px; flex:0 0 auto;
+  background:var(--brand); color:#fff; display:grid; place-items:center;
+  font-weight:800; font-size:var(--fs-16); letter-spacing:-.04em;
+}
+.side-logo b{ font-size:var(--fs-14); letter-spacing:.01em; }
+.side-logo span{ display:block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--side-muted); }
+
+.nav{ list-style:none; padding:var(--space-3) var(--space-2); display:flex; flex-direction:column; gap:2px; overflow-y:auto; flex:1; }
+.nav a{
+  display:flex; align-items:center; gap:11px;
+  padding:9px 11px; border-radius:var(--r);
+  color:var(--side-fg); text-decoration:none;
+  font-size:var(--fs-13); font-weight:500;
+  border-left:2px solid transparent;
+  transition:background .16s;
+}
+.nav a svg{ width:18px; height:18px; flex:0 0 auto; color:var(--side-muted); }
+.nav a:hover{ background:var(--side-hover); }
+.nav li.active a{ background:var(--brand); color:#fff; font-weight:600; }
+.nav li.active a svg{ color:#fff; }
+.nav a:focus-visible{ outline-offset:-2px; }
+
+.side-foot{ padding:var(--space-3); border-top:1px solid var(--side-line); }
+.btn-sync{
+  width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+  background:rgba(255,255,255,.06); color:var(--side-fg);
+  border:1px solid rgba(255,255,255,.14); border-radius:var(--r);
+  padding:9px 10px; font:600 var(--fs-12)/1 var(--font); cursor:pointer;
+  transition:background .16s;
+}
+.btn-sync:hover{ background:rgba(255,255,255,.13); }
+.btn-sync svg{ width:15px; height:15px; }
+.btn-sync.spin svg{ animation:spin .7s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.sync-meta{ display:block; margin-top:7px; font-size:10.5px; color:var(--side-muted); text-align:center; }
+
+/* ---- Main ---- */
+.main{ flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; }
+
+.topbar{
+  height:52px; flex:0 0 auto;
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:0 var(--space-4);
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+}
+.hamburger{
+  display:none; width:40px; height:40px; border-radius:var(--r);
+  border:1px solid var(--line); background:var(--surface); color:var(--text);
+  align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto;
+}
+.hamburger svg{ width:20px; height:20px; }
+.crumb{ display:flex; flex-direction:column; min-width:0; }
+.crumb b{ font-size:var(--fs-14); font-weight:700; letter-spacing:-.01em; line-height:1.15; }
+.crumb span{ font-size:11px; color:var(--muted); }
+.topbar-right{ margin-left:auto; display:flex; align-items:center; gap:var(--space-3); }
+.icon-btn{
+  width:38px; height:38px; border-radius:var(--r-pill);
+  border:1px solid var(--line); background:var(--surface); color:var(--text-2);
+  display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  transition:color .16s, border-color .16s; flex:0 0 auto;
+}
+.icon-btn:hover{ color:var(--brand); border-color:var(--brand); }
+.icon-btn svg{ width:19px; height:19px; }
+.ic-sun{ display:none; } .ic-moon{ display:inline-flex; }
+[data-theme="dark"] .ic-sun{ display:inline-flex; } [data-theme="dark"] .ic-moon{ display:none; }
+.user{
+  display:inline-flex; align-items:center; gap:8px; font-size:var(--fs-13); font-weight:600;
+  padding:6px 10px; border-radius:var(--r); border:1px solid transparent;
+}
+.user svg{ width:18px; height:18px; color:var(--muted); }
+.user .u-name{ max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn-exit{
+  display:inline-flex; align-items:center; gap:7px;
+  background:var(--danger); color:#fff; border:0; border-radius:var(--r);
+  padding:8px 12px; font:600 var(--fs-12)/1 var(--font); cursor:pointer; text-decoration:none;
+}
+.btn-exit:hover{ background:var(--danger-strong); }
+.btn-exit svg{ width:15px; height:15px; }
+
+/* Área de conteúdo — cada "tela" gerencia seu próprio scroll */
+.content{ flex:1; min-height:0; display:flex; }
+.screen{ display:none; flex:1; min-width:0; min-height:0; flex-direction:column; }
+.screen.is-active{ display:flex; }
+
+/* ===================================================================
+   TELA: DASHBOARD
+   =================================================================== */
+.screen-dash{ overflow-y:auto; padding:var(--space-5); }
+.page-head{ display:flex; align-items:flex-end; gap:var(--space-3); margin-bottom:var(--space-4); }
+.page-head h1{ font-size:var(--fs-22); font-weight:800; letter-spacing:-.02em; }
+.page-head p{ font-size:var(--fs-12); color:var(--muted); margin-left:auto; }
+
+.kpi-row{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:var(--space-3); }
+.kpi{
+  text-align:left; background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r-lg); padding:var(--space-3) var(--space-4) var(--space-4);
+  display:flex; flex-direction:column; gap:var(--space-2); min-width:0; cursor:pointer;
+  transition:border-color .16s, box-shadow .16s, transform .16s; position:relative;
+}
+.kpi:hover{ border-color:var(--line-strong); box-shadow:var(--shadow-sm); transform:translateY(-1px); }
+.kpi::after{ /* faixa de acento fininha à esquerda */
+  content:""; position:absolute; left:0; top:14px; bottom:14px; width:3px; border-radius:0 3px 3px 0;
+  background:var(--kpi-accent, transparent);
+}
+.kpi-top{ display:flex; align-items:center; gap:var(--space-2); }
+.kpi-ic{ width:26px; height:26px; border-radius:var(--r-sm); display:grid; place-items:center; flex:0 0 auto; }
+.kpi-ic svg{ width:16px; height:16px; }
+.kpi-label{ font-size:var(--fs-11); text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--text-2); }
+.kpi-val{ font-size:var(--fs-27); font-weight:800; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+.kpi-sub{ font-size:var(--fs-11); color:var(--muted); display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.kpi-chip{
+  font-family:var(--mono); font-size:10.5px; font-weight:600;
+  padding:2px 6px; border-radius:var(--r-sm);
+  background:var(--surface-2); border:1px solid var(--line); color:var(--text-2);
+}
+.kpi-chip b{ color:var(--text); }
+.kpi-strong .kpi-val{ color:var(--brand); }
+
+/* tintas dos ícones — sóbrias */
+.kpi-total{ --kpi-accent:var(--info); }        .kpi-total .kpi-ic{ background:rgba(17,89,162,.12); color:var(--info); }
+.kpi-disp{ --kpi-accent:var(--ok); }           .kpi-disp  .kpi-ic{ background:rgba(24,106,47,.14); color:var(--ok); }
+.kpi-uso{ --kpi-accent:var(--warn); }          .kpi-uso   .kpi-ic{ background:rgba(120,88,10,.16); color:var(--warn); }
+.kpi-atr{ --kpi-accent:var(--brand); }         .kpi-atr   .kpi-ic{ background:var(--brand-weak); color:var(--brand); }
+.kpi-fix{ --kpi-accent:var(--violet); }        .kpi-fix   .kpi-ic{ background:rgba(107,77,240,.16); color:var(--violet); }
+
+/* mini barra de utilização (densidade cockpit, dado consistente) */
+.util{ margin-top:var(--space-5); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:var(--space-4); }
+.util-head{ display:flex; align-items:center; gap:var(--space-2); margin-bottom:var(--space-3); }
+.util-head h2{ font-size:var(--fs-13); font-weight:700; }
+.util-head span{ margin-left:auto; font-size:var(--fs-11); color:var(--muted); }
+.util-bar{ display:flex; height:12px; border-radius:var(--r-pill); overflow:hidden; background:var(--surface-2); }
+.util-seg{ height:100%; }
+.util-legend{ display:flex; gap:var(--space-4); flex-wrap:wrap; margin-top:var(--space-3); }
+.util-legend span{ display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-11); color:var(--text-2); }
+.dot{ width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+
+/* ===================================================================
+   TELA: MÁQUINAS — toolbar sempre visível + tabela densa
+   =================================================================== */
+.screen-maq{ display:none; }
+.screen-maq.is-active{ display:flex; flex-direction:column; min-height:0; }
+.maq-head{
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:var(--space-4) var(--space-5) var(--space-3);
+  flex:0 0 auto;
+}
+.maq-head h1{ font-size:var(--fs-18); font-weight:800; letter-spacing:-.02em; }
+.count{
+  font-size:var(--fs-12); color:var(--text-2); font-weight:600;
+  padding:4px 10px; border-radius:var(--r-pill);
+  background:var(--surface-2); border:1px solid var(--line);
+}
+.count b{ color:var(--text); font-variant-numeric:tabular-nums; }
+
+/* Toolbar de filtros — compacta, densa, sempre no topo */
+.toolbar{
+  flex:0 0 auto;
+  display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap;
+  padding:var(--space-2) var(--space-5) var(--space-3);
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+.field{ position:relative; display:inline-flex; }
+.field svg.lead{ position:absolute; left:9px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--muted); pointer-events:none; }
+.input, .select{
+  height:34px; border:1px solid var(--line-strong); background:var(--surface); color:var(--text);
+  border-radius:var(--r); font:500 var(--fs-13)/1 var(--font); padding:0 var(--space-3);
+}
+.input::placeholder{ color:var(--muted); }
+.input.has-lead{ padding-left:30px; }
+.input-serial{ width:210px; }
+.input-evento{ width:180px; }
+.select{ cursor:pointer; padding-right:26px; appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237b8593' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat; background-position:right 8px center; }
+.input:focus, .select:focus{ outline:none; border-color:var(--brand); box-shadow:var(--focus-ring); }
+.tb-spacer{ flex:1 1 12px; }
+
+/* SISTEMA DE BOTÕES — .btn + variantes (um só) */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  height:34px; padding:0 var(--space-3);
+  border:1px solid transparent; border-radius:var(--r);
+  font:600 var(--fs-13)/1 var(--font); cursor:pointer; white-space:nowrap; text-decoration:none;
+  transition:background .16s, border-color .16s, color .16s;
+}
+.btn svg{ width:16px; height:16px; }
+.btn-primary{ background:var(--brand); color:var(--on-brand); }
+.btn-primary:hover{ background:var(--brand-strong); }
+.btn-ghost{ background:transparent; color:var(--text); border-color:var(--line-strong); }
+.btn-ghost:hover{ background:var(--surface-2); border-color:var(--muted); }
+.btn-sm{ height:30px; padding:0 10px; font-size:var(--fs-12); }
+.btn-danger{ background:var(--danger); color:#fff; }
+.btn-danger:hover{ background:var(--danger-strong); }
+
+/* Tabela — UM sistema */
+.table-scroll{ flex:1; min-height:0; overflow:auto; -webkit-overflow-scrolling:touch; }
+table.data{ width:100%; border-collapse:separate; border-spacing:0; }
+.data thead th{
+  position:sticky; top:0; z-index:3;
+  background:var(--thead-bg); color:var(--thead-fg);
+  text-align:left; font-size:var(--fs-11); font-weight:600; letter-spacing:.03em; text-transform:uppercase;
+  padding:9px var(--space-3); white-space:nowrap; border-bottom:1px solid var(--line);
+}
+.data th.num, .data td.num{ text-align:right; }
+.data tbody td{
+  padding:7px var(--space-3); border-bottom:1px solid var(--line);
+  white-space:nowrap; color:var(--text); font-size:var(--fs-13); vertical-align:middle;
+}
+.data tbody tr:nth-child(even) td{ background:var(--surface-2); }
+.data tbody tr:hover td{ background:var(--surface-3); }
+.c-idx{ color:var(--muted); font-variant-numeric:tabular-nums; width:1%; }
+.c-serial .mono, .c-evento .mono{ font-family:var(--mono); font-size:var(--fs-12); letter-spacing:-.02em; }
+.c-serial .mono{ font-weight:600; }
+.c-nome{ max-width:220px; }
+.c-nome span{ display:inline-block; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; }
+.c-obs{ color:var(--text-2); max-width:130px; }
+.c-obs span{ display:inline-block; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.c-retorno{ font-variant-numeric:tabular-nums; }
+.dim{ color:var(--muted); }
+
+/* select de status na linha (denso) */
+.sel-status{
+  height:30px; border:1px solid var(--line-strong); background:var(--surface); color:var(--text);
+  border-radius:var(--r-sm); font:500 var(--fs-12)/1 var(--font); padding:0 24px 0 8px; cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237b8593' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat; background-position:right 6px center;
+}
+.sel-status:focus{ outline:none; border-color:var(--brand); box-shadow:var(--focus-ring); }
+
+/* Pills de Situação — AA nos dois temas */
+.pill{
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 9px; border-radius:var(--r-pill);
+  font-size:var(--fs-11); font-weight:700; line-height:1.2; white-space:nowrap;
+}
+.pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; flex:0 0 auto; }
+.pill.atrasado{ background:var(--st-danger-bg); color:var(--st-danger-fg); }
+.pill.vence{ background:var(--st-warn-bg); color:var(--st-warn-fg); }
+.pill.prazo{ background:var(--st-ok-bg); color:var(--st-ok-fg); }
+.pill.disponivel{ background:var(--st-info-bg); color:var(--st-info-fg); }
+.pill.fixo{ background:var(--st-fixo-bg); color:var(--st-fixo-fg); }
+.pill.semdata{ background:var(--st-mute-bg); color:var(--st-mute-fg); }
+
+/* botão Salvar por linha */
+.btn-save{
+  height:30px; padding:0 12px; border-radius:var(--r-sm); border:1px solid var(--line-strong);
+  background:var(--surface); color:var(--text); font:600 var(--fs-12)/1 var(--font); cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px; transition:background .16s, border-color .16s, color .16s;
+}
+.btn-save svg{ width:14px; height:14px; }
+.btn-save:hover{ border-color:var(--brand); color:var(--brand); }
+.btn-save.dirty{ background:var(--brand); border-color:var(--brand); color:#fff; }
+
+/* EMPTY-STATE — um só componente (tabela vazia E telas não incluídas) */
+.empty{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--space-3);
+  padding:var(--space-10) var(--space-5); text-align:center; color:var(--text-2);
+}
+.empty-ic{
+  width:52px; height:52px; border-radius:14px; display:grid; place-items:center;
+  background:var(--surface-2); border:1px solid var(--line); color:var(--muted);
+}
+.empty-ic svg{ width:24px; height:24px; }
+.empty h3{ font-size:var(--fs-14); color:var(--text); font-weight:700; }
+.empty p{ font-size:var(--fs-13); max-width:340px; }
+.empty .btn{ margin-top:var(--space-2); }
+
+/* scrim do drawer (mobile) */
+.scrim{ display:none; position:absolute; inset:0; background:rgba(0,0,0,.42); z-index:35; }
+.app.nav-open .scrim{ display:block; }
+
+/* Scrollbars discretas */
+.table-scroll, .screen-dash, .nav{ scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent; }
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:8px; border:2px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover{ background:var(--muted); }
+
+/* ===================================================================
+   BREAKPOINTS COORDENADOS (container) — 3 níveis: base / 1040 / 560
+   =================================================================== */
+@container app (max-width:1040px){
+  .hamburger{ display:inline-flex; }
+  .sidebar{
+    position:absolute; z-index:40; top:0; left:0; height:100%;
+    transform:translateX(-100%); transition:transform .22s cubic-bezier(.2,.7,.2,1);
+    box-shadow:var(--shadow-lg);
+  }
+  .app.nav-open .sidebar{ transform:none; }
+  .kpi-row{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+}
+
+@container app (max-width:560px){
+  .topbar{ padding:0 var(--space-3); gap:var(--space-2); }
+  .crumb span{ display:none; }
+  .user .u-name{ display:none; }
+  .user{ padding:6px; }
+  .btn-exit span{ display:none; }
+  .btn-exit{ padding:8px; }
+
+  .kpi-row{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); }
+  .screen-dash{ padding:var(--space-4); }
+  .kpi-val{ font-size:var(--fs-22); }
+
+  .maq-head{ padding:var(--space-3) var(--space-4) var(--space-2); flex-wrap:wrap; }
+  .toolbar{ padding:var(--space-2) var(--space-4) var(--space-3); gap:var(--space-2); }
+  /* alvos de toque >= 44px */
+  .input, .select, .btn, .sel-status, .btn-save{ min-height:44px; }
+  .input-serial{ width:100%; flex:1 1 100%; }
+  .field:first-of-type{ flex:1 1 100%; }
+  .input-evento{ flex:1 1 100%; width:auto; }
+  .select{ flex:1 1 calc(50% - 4px); }
+  .btn{ flex:1 1 calc(50% - 4px); }
+  .tb-spacer{ display:none; }
+
+  /* TABELA no mobile: some o "#", congela a coluna Serial, resto rola na horizontal */
+  .data .c-idx{ display:none; }
+  .data th.col-serial, .data td.col-serial{
+    position:sticky; left:0; z-index:2; box-shadow:1px 0 0 var(--line-strong);
+    background:var(--surface);
+  }
+  .data thead th.col-serial{ z-index:4; background:var(--thead-bg); }
+  .data tbody tr:nth-child(even) td.col-serial{ background:var(--surface-2); }
+  .data tbody tr:hover td.col-serial{ background:var(--surface-3); }
+  .c-nome, .c-nome span{ max-width:150px; }
+}
+
+/* ===================================================================
+   APÊNDICE — sistema de componentes (venda da direção)
+   =================================================================== */
+.appendix{ max-width:1320px; margin:var(--space-4) auto 0; padding:0 var(--space-5) var(--space-10); }
+.appendix h2{ font-size:var(--fs-13); text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:var(--space-3); }
+.sys-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:var(--space-3); }
+.sys-card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:var(--space-4); }
+.sys-card h3{ font-size:var(--fs-12); font-weight:700; color:var(--text-2); margin-bottom:var(--space-3); text-transform:uppercase; letter-spacing:.04em; }
+.sys-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.swatch{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+.swatch i{ width:44px; height:30px; border-radius:var(--r-sm); border:1px solid var(--line); display:block; }
+.swatch small{ font-size:10px; color:var(--muted); font-family:var(--mono); }
+.type-row{ display:flex; flex-direction:column; gap:2px; }
+.type-row b{ line-height:1.1; }
+.aa-note{ margin-top:var(--space-3); font-size:var(--fs-11); color:var(--text-2); display:flex; gap:6px; align-items:center; }
+.aa-badge{ font-size:10px; font-weight:800; color:#fff; background:var(--ok); border-radius:4px; padding:2px 5px; letter-spacing:.03em; }
+
+/* ===== Toasts ===== */
+#toasts{ position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:10px; z-index:1000; pointer-events:none; }
+.toast{
+  display:flex; align-items:center; gap:9px;
+  min-width:200px; max-width:340px; padding:11px 14px; border-radius:var(--r);
+  color:#fff; font-weight:600; font-size:var(--fs-13); box-shadow:var(--shadow-lg);
+  opacity:0; transform:translateY(10px); transition:opacity .2s, transform .2s;
+}
+.toast svg{ width:17px; height:17px; flex:0 0 auto; }
+.toast.show{ opacity:1; transform:none; }
+.toast.ok{ background:var(--ok); } .toast.err{ background:var(--danger); } .toast.info{ background:var(--ink); }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ============ Barra da apresentação (não faz parte do produto) ============ -->
+<div class="spec">
+  <div class="spec-bar">
+    <div class="spec-brand">
+      <div class="spec-logo">M</div>
+      <div>
+        <b>Maquininhas — Direção B</b>
+        <span>Cockpit Denso · pro-tool operacional</span>
+      </div>
+    </div>
+    <div class="spec-actions">
+      <div class="seg" role="group" aria-label="Tamanho de tela">
+        <button id="vpDesktop" aria-pressed="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+          Desktop
+        </button>
+        <button id="vpMobile" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+          Mobile 375px
+        </button>
+      </div>
+      <span class="spec-note" id="vpNote">Largura real · breakpoints reagem ao container</span>
+    </div>
+  </div>
+  <p class="spec-hint">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+    Mockup navegável: alterne telas na sidebar, filtre a tabela, salve status, troque o tema. No modo <b>Mobile 375px</b>, a coluna <b>Serial</b> fica congelada e o resto rola — o teste de fogo.
+  </p>
+</div>
+
+<!-- ============ Dispositivo (o produto) ============ -->
+<div class="stage">
+  <div class="device is-desktop" id="device">
+    <div class="chrome">
+      <i></i><i></i><i></i>
+      <div class="url">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        maquininhas-node.vercel.app
+      </div>
+    </div>
+
+    <div class="app" id="app">
+      <div class="scrim" id="scrim"></div>
+
+      <!-- ---------- Sidebar ---------- -->
+      <aside class="sidebar" id="sidebar">
+        <div class="side-logo">
+          <div class="mark">M</div>
+          <div><b>Maquininhas</b><span>PagSeguro · Ingresse</span></div>
+        </div>
+        <ul class="nav" id="nav">
+          <li class="active" data-screen="dash"><a href="#" aria-current="page">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="7" rx="1"/><rect x="4" y="15" width="6" height="5" rx="1"/><rect x="14" y="4" width="6" height="5" rx="1"/><rect x="14" y="13" width="6" height="7" rx="1"/></svg>
+            Dashboard</a></li>
+          <li data-screen="maq"><a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="7" y1="15" x2="9" y2="15"/></svg>
+            Máquinas Cadastradas</a></li>
+          <li data-screen="envio"><a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11H7l4-4"/><path d="M4 13h13l-4 4"/></svg>
+            Envio / Retorno</a></li>
+          <li data-screen="hist"><a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 4v5h5"/></svg>
+            Histórico</a></li>
+          <li data-screen="exc"><a href="#">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 4.3l-8 14A1.9 1.9 0 0 0 4 21h16a1.9 1.9 0 0 0 1.7-2.7l-8-14a1.9 1.9 0 0 0-3.4 0z"/></svg>
+            Exceções</a></li>
+        </ul>
+        <div class="side-foot">
+          <button class="btn-sync" id="btnSync" title="Atualizar o espelho (planilha → Neon)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+            Sincronizar
+          </button>
+          <span class="sync-meta" id="syncMeta">Última: 11/07 09:42</span>
+        </div>
+      </aside>
+
+      <!-- ---------- Main ---------- -->
+      <div class="main">
+        <div class="topbar">
+          <button class="hamburger" id="hamburger" aria-label="Abrir menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+          </button>
+          <div class="crumb"><b id="crumbTitle">Dashboard</b><span id="crumbSub">Visão geral do parque</span></div>
+          <div class="topbar-right">
+            <button class="icon-btn" id="themeToggle" aria-label="Alternar tema" title="Alternar tema claro/escuro">
+              <span class="ic-moon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9a9 9 0 1 1 -9 -9z"/></svg></span>
+              <span class="ic-sun"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span>
+            </button>
+            <span class="user"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/></svg><span class="u-name">Marcio F.</span></span>
+            <a href="#" class="btn-exit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2"/><path d="M18 15l3-3-3-3M9 12h12"/></svg><span>Sair</span></a>
+          </div>
+        </div>
+
+        <div class="content">
+
+          <!-- ===== TELA DASHBOARD ===== -->
+          <section class="screen screen-dash is-active" id="screen-dash">
+            <div class="page-head">
+              <h1>Dashboard</h1>
+              <p>Atualizado 11/07 · 09:42 BRT</p>
+            </div>
+
+            <div class="kpi-row">
+              <button class="kpi kpi-total" data-goto="maq" data-filter="">
+                <div class="kpi-top">
+                  <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span>
+                  <span class="kpi-label">Total</span>
+                </div>
+                <span class="kpi-val">552</span>
+                <span class="kpi-sub">no parque</span>
+              </button>
+
+              <button class="kpi kpi-disp" data-goto="maq" data-filter="Estoque">
+                <div class="kpi-top">
+                  <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></span>
+                  <span class="kpi-label">Disponíveis</span>
+                </div>
+                <span class="kpi-val">77</span>
+                <span class="kpi-sub">
+                  <span class="kpi-chip">SP <b>50</b></span>
+                  <span class="kpi-chip">RJ <b>24</b></span>
+                  <span class="kpi-chip">URA <b>3</b></span>
+                </span>
+              </button>
+
+              <button class="kpi kpi-uso" data-goto="maq" data-filter="Em Uso">
+                <div class="kpi-top">
+                  <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-3"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="17" cy="18" r="1.7"/></svg></span>
+                  <span class="kpi-label">Em Uso</span>
+                </div>
+                <span class="kpi-val">475</span>
+                <span class="kpi-sub">86% do parque · em eventos</span>
+              </button>
+
+              <button class="kpi kpi-atr kpi-strong" data-goto="maq" data-filter="__atrasada">
+                <div class="kpi-top">
+                  <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                  <span class="kpi-label">Atrasadas</span>
+                </div>
+                <span class="kpi-val">125</span>
+                <span class="kpi-sub">retorno vencido · exige ação</span>
+              </button>
+
+              <button class="kpi kpi-fix" data-goto="maq" data-filter="Fixo">
+                <div class="kpi-top">
+                  <span class="kpi-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 6-8 6-11a6 6 0 1 0-12 0c0 3 2 6 6 11z"/><circle cx="12" cy="10" r="2"/></svg></span>
+                  <span class="kpi-label">Fixas</span>
+                </div>
+                <span class="kpi-val">169</span>
+                <span class="kpi-sub">instalação fixa</span>
+              </button>
+            </div>
+
+            <div class="util">
+              <div class="util-head">
+                <h2>Estoque disponível por praça</h2>
+                <span>77 máquinas prontas para envio</span>
+              </div>
+              <div class="util-bar" aria-hidden="true">
+                <div class="util-seg" style="width:64.9%; background:var(--info);" title="SP 50"></div>
+                <div class="util-seg" style="width:31.2%; background:var(--ok);" title="RJ 24"></div>
+                <div class="util-seg" style="width:3.9%; background:var(--warn);" title="URA 3"></div>
+              </div>
+              <div class="util-legend">
+                <span><i class="dot" style="background:var(--info)"></i> SP — 50</span>
+                <span><i class="dot" style="background:var(--ok)"></i> RJ — 24</span>
+                <span><i class="dot" style="background:var(--warn)"></i> URA — 3</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== TELA MÁQUINAS ===== -->
+          <section class="screen screen-maq" id="screen-maq">
+            <div class="maq-head">
+              <h1>Máquinas Cadastradas</h1>
+              <span class="count" id="count">Exibindo <b id="cVis">8</b> de <b>552</b> máquinas</span>
+            </div>
+
+            <div class="toolbar" role="search">
+              <div class="field">
+                <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+                <input class="input has-lead input-serial" id="fSerial" type="text" placeholder="Serials (ex: PBA123, 11703)" aria-label="Filtrar por serial">
+              </div>
+              <select class="select" id="fStatus" aria-label="Filtrar por status">
+                <option value="">Status</option>
+                <option>Estoque SP</option><option>Estoque RJ</option><option>Estoque URA</option>
+                <option>Em Uso SP</option><option>Em Uso RJ</option><option>Em Uso URA</option><option>Fixo</option>
+              </select>
+              <select class="select" id="fSit" aria-label="Filtrar por situação">
+                <option value="">Situação</option>
+                <option value="atrasado">Atrasado</option>
+                <option value="vence">Vence hoje</option>
+                <option value="prazo">Dentro do prazo</option>
+                <option value="disponivel">Disponível</option>
+                <option value="fixo">Fixo</option>
+                <option value="semdata">Sem data</option>
+              </select>
+              <select class="select" id="fEmp" aria-label="Filtrar por empresa">
+                <option value="">Empresa</option><option>Ingresse</option><option>Meep</option>
+              </select>
+              <div class="field">
+                <input class="input input-evento" id="fEvento" type="text" placeholder="Evento (ID ou nome)" aria-label="Filtrar por evento">
+              </div>
+              <select class="select" id="fRet" aria-label="Filtrar por retorno">
+                <option value="">Retorno</option>
+                <option value="hoje">Hoje</option>
+                <option value="semana">Esta semana</option>
+                <option value="mes">Este mês</option>
+                <option value="atrasada">Atrasadas</option>
+                <option value="emdia">Em dia</option>
+              </select>
+              <span class="tb-spacer"></span>
+              <button class="btn btn-ghost" id="btnClear">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                Limpar
+              </button>
+              <button class="btn btn-primary" id="btnExport">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 21h16"/></svg>
+                Exportar Excel
+              </button>
+            </div>
+
+            <div class="table-scroll" id="tableScroll">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th class="c-idx">#</th>
+                    <th>Modelo</th>
+                    <th class="col-serial">Nº Serial</th>
+                    <th>Status</th>
+                    <th>Situação</th>
+                    <th>Empresa</th>
+                    <th class="num">ID Evento</th>
+                    <th>Nome Evento</th>
+                    <th>Data Retorno</th>
+                    <th>Obs</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody"><!-- linhas via JS --></tbody>
+              </table>
+              <div class="empty" id="tblEmpty" style="display:none">
+                <div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4M8 11h6"/></svg></div>
+                <h3>Nenhuma máquina encontrada</h3>
+                <p>Nenhum item corresponde aos filtros aplicados. Ajuste os critérios ou limpe os filtros.</p>
+                <button class="btn btn-ghost" id="btnClear2">Limpar filtros</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== TELAS NÃO INCLUÍDAS (mesmo empty-state) ===== -->
+          <section class="screen" id="screen-envio"><div class="empty">
+            <div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11H7l4-4"/><path d="M4 13h13l-4 4"/></svg></div>
+            <h3>Envio / Retorno</h3><p>Fora do escopo deste mockup de direção — usa o mesmo sistema de campos, botões e feedback demonstrado aqui.</p>
+            <button class="btn btn-ghost" data-goto="dash">Voltar ao Dashboard</button>
+          </div></section>
+          <section class="screen" id="screen-hist"><div class="empty">
+            <div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 4v5h5"/></svg></div>
+            <h3>Histórico</h3><p>Fora do escopo deste mockup — reaproveita o mesmo sistema de tabela densa e filtros da tela Máquinas.</p>
+            <button class="btn btn-ghost" data-goto="dash">Voltar ao Dashboard</button>
+          </div></section>
+          <section class="screen" id="screen-exc"><div class="empty">
+            <div class="empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.3l-8 14A1.9 1.9 0 0 0 4 21h16a1.9 1.9 0 0 0 1.7-2.7l-8-14a1.9 1.9 0 0 0-3.4 0z"/></svg></div>
+            <h3>Exceções</h3><p>Perdidas · Trocas · Localizar. Fora do escopo deste mockup de direção visual.</p>
+            <button class="btn btn-ghost" data-goto="dash">Voltar ao Dashboard</button>
+          </div></section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="spec-hint" id="mobileHint" style="display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h13M8 6h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    iPhone SE · 375 px — abra a tela <b>Máquinas</b> (menu ☰) e role a tabela na horizontal: a coluna Serial fica congelada, o resto acompanha.
+  </p>
+</div>
+
+<!-- ============ Apêndice: sistema de componentes ============ -->
+<div class="appendix">
+  <h2>Sistema unificado — um só de cada</h2>
+  <div class="sys-grid">
+    <div class="sys-card">
+      <h3>Cor da marca</h3>
+      <div class="sys-row">
+        <div class="swatch"><i style="background:#FF271A"></i><small>#FF271A</small></div>
+        <div class="swatch"><i style="background:#1A1A1A"></i><small>#1A1A1A ink</small></div>
+        <div class="swatch"><i style="background:var(--surface)"></i><small>surface</small></div>
+        <div class="swatch"><i style="background:var(--surface-2)"></i><small>surface-2</small></div>
+        <div class="swatch"><i style="background:var(--bg)"></i><small>bg</small></div>
+      </div>
+    </div>
+
+    <div class="sys-card">
+      <h3>Botões — .btn + variantes</h3>
+      <div class="sys-row">
+        <button class="btn btn-primary">Primário</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn btn-danger">Danger</button>
+        <button class="btn btn-primary btn-sm">Small</button>
+      </div>
+    </div>
+
+    <div class="sys-card">
+      <h3>Pills de Situação — contraste AA</h3>
+      <div class="sys-row">
+        <span class="pill atrasado">Atrasado</span>
+        <span class="pill vence">Vence hoje</span>
+        <span class="pill prazo">Dentro do prazo</span>
+        <span class="pill disponivel">Disponível</span>
+        <span class="pill fixo">Fixo</span>
+        <span class="pill semdata">Sem data</span>
+      </div>
+      <div class="aa-note"><span class="aa-badge">AA ✓</span> texto forte sobre tinta clara — passa em light e dark.</div>
+    </div>
+
+    <div class="sys-card">
+      <h3>Escala tipográfica · tokens</h3>
+      <div class="type-row">
+        <b style="font-size:var(--fs-27)">27 — KPI</b>
+        <b style="font-size:var(--fs-18)">18 — título de tela</b>
+        <b style="font-size:var(--fs-14)">14 — corpo</b>
+        <b style="font-size:var(--fs-13)">13 — tabela densa</b>
+        <span style="font-size:var(--fs-11); color:var(--muted)">11 — rótulos · --space-1..10 · raios 6/8/12</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   DADOS DE EXEMPLO — fiéis ao app real (colunas B/C/G/I/J/K/O/P)
+   Hoje (BRT) fixado para o cálculo de situação: 11/07/2026.
+============================================================ */
+var HOJE = new Date(2026, 6, 11); // 11/07/2026
+var STATUS_OPTS = ["Estoque SP","Estoque RJ","Estoque URA","Em Uso SP","Em Uso RJ","Em Uso URA","Fixo"];
+var ROWS = [
+  { modelo:"Moderninha Smart 2", serial:"PBA1226170136", status:"Em Uso SP",  empresa:"Ingresse", id:"70791", nome:"Vila Sítio São João 2026",       ret:"09/07/2026", obs:"" },
+  { modelo:"Moderninha Smart 2", serial:"1170415893",    status:"Em Uso RJ",  empresa:"Ingresse", id:"70802", nome:"Festival de Inverno Petrópolis", ret:"11/07/2026", obs:"chip Vivo" },
+  { modelo:"Moderninha Smart 2", serial:"PBA1226170140", status:"Em Uso SP",  empresa:"Ingresse", id:"70791", nome:"Vila Sítio São João 2026",       ret:"13/07/2026", obs:"" },
+  { modelo:"Moderninha Pro 2",   serial:"PBA0987654321", status:"Estoque SP", empresa:"Ingresse", id:"",      nome:"",                                ret:"",           obs:"" },
+  { modelo:"Moderninha Smart 2", serial:"PBA1226170155", status:"Fixo",       empresa:"Ingresse", id:"70808", nome:"Arena da Amizade — Sede",         ret:"",           obs:"instalada" },
+  { modelo:"Moderninha Smart 2", serial:"1170419002",    status:"Em Uso URA", empresa:"Ingresse", id:"70810", nome:"Circuito Sertanejo Uberaba",      ret:"",           obs:"conferir data" },
+  { modelo:"Moderninha Pro 2",   serial:"PBA1226170177", status:"Em Uso SP",  empresa:"Meep",     id:"70795", nome:"Expo Agro Barretos 2026",         ret:"05/07/2026", obs:"" },
+  { modelo:"Moderninha Smart 2", serial:"PBA1226170180", status:"Estoque RJ", empresa:"Ingresse", id:"",      nome:"",                                ret:"",           obs:"" }
+];
+
+var SIT = {
+  atrasado:  { cls:"atrasado",   label:"Atrasado" },
+  vence:     { cls:"vence",      label:"Vence hoje" },
+  prazo:     { cls:"prazo",      label:"Dentro do prazo" },
+  disponivel:{ cls:"disponivel", label:"Disponível" },
+  fixo:      { cls:"fixo",       label:"Fixo" },
+  semdata:   { cls:"semdata",    label:"Sem data" }
+};
+
+function parseBR(d){
+  if(!d) return null;
+  var p = d.split("/"); if(p.length!==3) return null;
+  var dt = new Date(Number(p[2]), Number(p[1])-1, Number(p[0]));
+  return isNaN(dt.getTime()) ? null : dt;
+}
+/* espelha src/utils/datas.js:situacaoDeMaquina */
+function situacao(status, ret){
+  var s = (status||"").toLowerCase();
+  if(s.indexOf("em uso")===0){
+    var dt = parseBR(ret);
+    if(!dt) return "semdata";
+    var diff = Math.round((dt - HOJE)/86400000);
+    if(diff < 0) return "atrasado";
+    if(diff === 0) return "vence";
+    return "prazo";
+  }
+  if(s === "fixo") return "fixo";
+  if(s.indexOf("estoque")===0) return "disponivel";
+  return "semdata";
+}
+function temEvento(status){ var s=(status||"").toLowerCase(); return s.indexOf("em uso")===0 || s==="fixo"; }
+function esc(t){ return String(t).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+/* ============================================================
+   RENDER DAS LINHAS
+============================================================ */
+var tbody = document.getElementById("tbody");
+function render(){
+  var html = "";
+  ROWS.forEach(function(m, i){
+    var sitKey = situacao(m.status, m.ret);
+    var sit = SIT[sitKey];
+    var showEv = temEvento(m.status);
+    var idTxt = showEv && m.id ? m.id : "—";
+    var nomeTxt = showEv && m.nome ? m.nome : "—";
+    var retTxt = (showEv && m.ret) ? m.ret : "—";
+    var opts = STATUS_OPTS.map(function(s){
+      return '<option'+(s===m.status?' selected':'')+'>'+s+'</option>';
+    }).join("");
+    html +=
+      '<tr class="row"'
+      + ' data-serial="'+esc(m.serial.toLowerCase())+'"'
+      + ' data-status="'+esc(m.status)+'"'
+      + ' data-sit="'+sitKey+'"'
+      + ' data-empresa="'+esc(m.empresa)+'"'
+      + ' data-evento="'+esc(showEv?m.id:"")+'"'
+      + ' data-nome="'+esc(showEv?m.nome.toLowerCase():"")+'"'
+      + ' data-ret="'+esc(showEv&&m.ret?m.ret:"")+'">'
+      + '<td class="c-idx">'+(i+1)+'</td>'
+      + '<td>'+esc(m.modelo)+'</td>'
+      + '<td class="c-serial col-serial"><span class="mono">'+esc(m.serial)+'</span></td>'
+      + '<td><select class="sel-status" aria-label="Status">'+opts+'</select></td>'
+      + '<td class="c-sit"><span class="pill '+sit.cls+'">'+sit.label+'</span></td>'
+      + '<td>'+esc(m.empresa)+'</td>'
+      + '<td class="c-evento num">'+(idTxt==="—"?'<span class="dim">—</span>':'<span class="mono">'+esc(idTxt)+'</span>')+'</td>'
+      + '<td class="c-nome"><span title="'+esc(nomeTxt)+'">'+(nomeTxt==="—"?'<span class="dim">—</span>':esc(nomeTxt))+'</span></td>'
+      + '<td class="c-retorno">'+(retTxt==="—"?'<span class="dim">—</span>':esc(retTxt))+'</td>'
+      + '<td class="c-obs"><span title="'+esc(m.obs)+'">'+(m.obs?esc(m.obs):'<span class="dim">—</span>')+'</span></td>'
+      + '<td><button class="btn-save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>Salvar</button></td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = html;
+  wireRows();
+  applyFilters();
+}
+
+/* recalcula a pill de Situação ao trocar o status na linha (espelha o app) */
+function wireRows(){
+  Array.prototype.forEach.call(tbody.querySelectorAll(".row"), function(tr){
+    var sel = tr.querySelector(".sel-status");
+    var save = tr.querySelector(".btn-save");
+    sel.addEventListener("change", function(){
+      var novo = sel.value;
+      tr.dataset.status = novo;
+      var showEv = temEvento(novo);
+      if(!showEv){ tr.dataset.ret = ""; }
+      var sitKey = situacao(novo, tr.dataset.ret);
+      tr.dataset.sit = sitKey;
+      var pill = tr.querySelector(".c-sit .pill");
+      pill.className = "pill "+SIT[sitKey].cls;
+      pill.textContent = SIT[sitKey].label;
+      if(!showEv){
+        tr.querySelector(".c-evento").innerHTML = '<span class="dim">—</span>';
+        tr.querySelector(".c-nome").innerHTML = '<span class="dim">—</span>';
+        tr.querySelector(".c-retorno").innerHTML = '<span class="dim">—</span>';
+        tr.dataset.evento = ""; tr.dataset.nome = "";
+      }
+      save.classList.add("dirty");
+    });
+    save.addEventListener("click", function(){
+      save.classList.remove("dirty");
+      toast("Status salvo · "+tr.querySelector(".c-serial .mono").textContent, "ok");
+      applyFilters();
+    });
+  });
+}
+
+/* ============================================================
+   FILTROS
+============================================================ */
+var fSerial=document.getElementById("fSerial"), fStatus=document.getElementById("fStatus"),
+    fSit=document.getElementById("fSit"), fEmp=document.getElementById("fEmp"),
+    fEvento=document.getElementById("fEvento"), fRet=document.getElementById("fRet"),
+    cVis=document.getElementById("cVis"), tblEmpty=document.getElementById("tblEmpty");
+
+function matchRet(tr, ret){
+  if(!ret) return true;
+  var status = tr.dataset.status, r = tr.dataset.ret;
+  if(status.toLowerCase().indexOf("em uso")!==0 || !r) return false;
+  var dt = parseBR(r); if(!dt) return false;
+  var diff = Math.round((dt - HOJE)/86400000);
+  if(ret==="atrasada") return diff < 0;
+  if(ret==="emdia")    return diff >= 0;
+  if(ret==="hoje")     return diff === 0;
+  if(ret==="semana")   return diff >= 0 && diff <= 7;
+  if(ret==="mes")      return dt.getMonth()===HOJE.getMonth() && dt.getFullYear()===HOJE.getFullYear();
+  return true;
+}
+function applyFilters(){
+  var txt=fSerial.value.toLowerCase().trim(), st=fStatus.value, sit=fSit.value,
+      emp=fEmp.value, ev=fEvento.value.toLowerCase().trim(), ret=fRet.value;
+  var terms = txt ? txt.split(",").map(function(t){return t.trim();}).filter(Boolean) : [];
+  var evTerms = ev ? ev.split(",").map(function(t){return t.trim();}).filter(Boolean) : [];
+  var vis=0;
+  Array.prototype.forEach.call(tbody.querySelectorAll(".row"), function(tr){
+    var ok = true;
+    if(terms.length && !terms.some(function(t){ return tr.dataset.serial.indexOf(t)>=0; })) ok=false;
+    if(st && tr.dataset.status!==st) ok=false;
+    if(sit && tr.dataset.sit!==sit) ok=false;
+    if(emp && tr.dataset.empresa!==emp) ok=false;
+    if(evTerms.length){
+      var id=tr.dataset.evento.toLowerCase(), nm=tr.dataset.nome;
+      if(!evTerms.some(function(t){ return id===t || (nm && nm.indexOf(t)>=0); })) ok=false;
+    }
+    if(!matchRet(tr, ret)) ok=false;
+    tr.style.display = ok ? "" : "none";
+    if(ok) vis++;
+  });
+  cVis.textContent = vis;
+  tblEmpty.style.display = vis===0 ? "" : "none";
+}
+[fSerial,fEvento].forEach(function(f){ f.addEventListener("input", applyFilters); });
+[fStatus,fSit,fEmp,fRet].forEach(function(f){ f.addEventListener("change", applyFilters); });
+
+function clearFilters(){
+  fSerial.value=""; fStatus.value=""; fSit.value=""; fEmp.value=""; fEvento.value=""; fRet.value="";
+  applyFilters();
+}
+document.getElementById("btnClear").addEventListener("click", clearFilters);
+document.getElementById("btnClear2").addEventListener("click", clearFilters);
+
+/* Exportar — CSV self-contained (sem lib externa) */
+document.getElementById("btnExport").addEventListener("click", function(){
+  var rows = Array.prototype.filter.call(tbody.querySelectorAll(".row"), function(tr){ return tr.style.display!=="none"; });
+  if(!rows.length){ toast("Nenhuma máquina filtrada.", "err"); return; }
+  var head = ["Modelo","Serial","Status","Situacao","Empresa","ID Evento","Nome Evento","Data Retorno"];
+  var lines = [head.join(";")];
+  rows.forEach(function(tr){
+    var c = tr.children;
+    lines.push([
+      c[1].textContent, c[2].textContent, tr.querySelector(".sel-status").value,
+      SIT[tr.dataset.sit].label, tr.dataset.empresa,
+      tr.dataset.evento||"-", (c[7].textContent||"-").trim(), tr.dataset.ret||"-"
+    ].map(function(x){ return '"'+String(x).replace(/"/g,'""')+'"'; }).join(";"));
+  });
+  var blob = new Blob(["﻿"+lines.join("\r\n")], {type:"text/csv;charset=utf-8"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "maquinas_filtradas.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast("Exportando "+rows.length+" máquinas", "ok");
+});
+
+/* ============================================================
+   NAVEGAÇÃO ENTRE TELAS
+============================================================ */
+var CRUMB = {
+  dash:  ["Dashboard", "Visão geral do parque"],
+  maq:   ["Máquinas Cadastradas", "552 máquinas no parque"],
+  envio: ["Envio / Retorno", "Movimentação de hardware"],
+  hist:  ["Histórico", "Log de movimentos"],
+  exc:   ["Exceções", "Perdidas · Trocas · Localizar"]
+};
+function goScreen(key, filter){
+  document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("is-active"); });
+  var el = document.getElementById("screen-"+key);
+  if(el) el.classList.add("is-active");
+  document.querySelectorAll("#nav li").forEach(function(li){
+    li.classList.toggle("active", li.dataset.screen===key);
+    var a = li.querySelector("a");
+    if(li.dataset.screen===key){ a.setAttribute("aria-current","page"); } else { a.removeAttribute("aria-current"); }
+  });
+  document.getElementById("crumbTitle").textContent = CRUMB[key][0];
+  document.getElementById("crumbSub").textContent = CRUMB[key][1];
+  if(key==="maq" && typeof filter!=="undefined"){
+    clearFilters();
+    if(filter==="__atrasada"){ fRet.value="atrasada"; }
+    else if(filter){ fStatus.value = normStatus(filter); }
+    applyFilters();
+  }
+  closeNav();
+  var sd=document.getElementById("screen-dash"); if(sd) sd.scrollTop=0;
+}
+/* KPI manda um "prefixo" de status → escolhe a 1ª opção que casa */
+function normStatus(pre){
+  var m = STATUS_OPTS.filter(function(s){ return s.toLowerCase().indexOf(pre.toLowerCase())===0; });
+  return m.length===1 ? m[0] : ""; /* prefixo amplo (Estoque/Em Uso) filtra via sit no lugar */
+}
+document.querySelectorAll("#nav li").forEach(function(li){
+  li.querySelector("a").addEventListener("click", function(e){ e.preventDefault(); goScreen(li.dataset.screen); });
+});
+document.querySelectorAll("[data-goto]").forEach(function(el){
+  el.addEventListener("click", function(){ goScreen(el.dataset.goto, el.dataset.filter); });
+});
+/* refinar KPI amplo: Estoque/Em Uso viram filtro de Situação */
+document.querySelectorAll(".kpi[data-filter]").forEach(function(k){
+  k.addEventListener("click", function(){
+    var f = k.dataset.filter;
+    if(f==="Estoque"){ setTimeout(function(){ fSit.value="disponivel"; applyFilters(); },0); }
+    if(f==="Em Uso"){ /* mantém todos em uso; nada a fazer além do goScreen */ }
+    if(f==="Fixo"){ setTimeout(function(){ fSit.value="fixo"; applyFilters(); },0); }
+  });
+});
+
+/* ============================================================
+   DRAWER (mobile)
+============================================================ */
+var app=document.getElementById("app");
+function openNav(){ app.classList.add("nav-open"); }
+function closeNav(){ app.classList.remove("nav-open"); }
+document.getElementById("hamburger").addEventListener("click", function(){ app.classList.toggle("nav-open"); });
+document.getElementById("scrim").addEventListener("click", closeNav);
+
+/* ============================================================
+   TEMA (localStorage, um bloco só)
+============================================================ */
+document.getElementById("themeToggle").addEventListener("click", function(){
+  var cur = document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light";
+  var next = cur==="dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try{ localStorage.setItem("mkq-theme", next); }catch(e){}
+});
+
+/* ============================================================
+   VIEWPORT Desktop / Mobile 375
+============================================================ */
+var device=document.getElementById("device");
+var vpD=document.getElementById("vpDesktop"), vpM=document.getElementById("vpMobile"),
+    vpNote=document.getElementById("vpNote"), mobileHint=document.getElementById("mobileHint");
+function setVP(mobile){
+  device.classList.toggle("is-mobile", mobile);
+  device.classList.toggle("is-desktop", !mobile);
+  device.style.width = mobile ? "375px" : "";   /* dirige a largura do container (breakpoints reagem a ela) */
+  vpD.setAttribute("aria-pressed", String(!mobile));
+  vpM.setAttribute("aria-pressed", String(mobile));
+  vpNote.textContent = mobile ? "375 px · coluna Serial congelada, resto rola" : "Largura real · breakpoints reagem ao container";
+  mobileHint.style.display = mobile ? "" : "none";
+  if(mobile) goScreen("maq"); else closeNav();
+}
+vpD.addEventListener("click", function(){ setVP(false); });
+vpM.addEventListener("click", function(){ setVP(true); });
+
+/* ============================================================
+   SINCRONIZAR
+============================================================ */
+document.getElementById("btnSync").addEventListener("click", function(){
+  var b=this; if(b.classList.contains("spin")) return;
+  b.classList.add("spin");
+  setTimeout(function(){
+    b.classList.remove("spin");
+    var now=new Date();
+    var hh=("0"+now.getHours()).slice(-2), mm=("0"+now.getMinutes()).slice(-2);
+    document.getElementById("syncMeta").textContent = "Última: 11/07 "+hh+":"+mm;
+    toast("Espelho sincronizado (planilha → Neon)", "ok");
+  }, 900);
+});
+
+/* ============================================================
+   TOASTS
+============================================================ */
+var CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>';
+var XMARK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+function toast(msg, kind){
+  var wrap=document.getElementById("toasts");
+  var t=document.createElement("div");
+  t.className="toast "+(kind||"info");
+  t.innerHTML=(kind==="err"?XMARK:CHECK)+"<span>"+esc(msg)+"</span>";
+  wrap.appendChild(t);
+  requestAnimationFrame(function(){ t.classList.add("show"); });
+  setTimeout(function(){ t.classList.remove("show"); setTimeout(function(){ t.remove(); }, 220); }, 2600);
+}
+
+/* INIT */
+render();
+</script>
+</body>
+</html>
