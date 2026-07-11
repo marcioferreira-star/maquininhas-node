@@ -249,8 +249,8 @@
                 <td><%= h.retorno || "-" %></td>
                 <td><%= h.usuario || "-" %></td>
                 <td title="<%= (h.nome_evento && h.nome_evento !== '-') ? h.nome_evento : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.nome_evento || "-" %></td>
-                <td><%= h.produtora || "-" %></td>
-                <td><%= h.comercial || "-" %></td>
+                <td title="<%= (h.produtora && h.produtora !== '-') ? h.produtora : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.produtora || "-" %></td>
+                <td title="<%= (h.comercial && h.comercial !== '-') ? h.comercial : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.comercial || "-" %></td>
                 <td title="<%= (h.obs && h.obs !== '-') ? h.obs : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.obs || "-" %></td>
               </tr>
             <% }) %>
