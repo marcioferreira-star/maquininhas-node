@@ -55,6 +55,7 @@
     border-collapse: separate;       /* ✅ 'collapse' quebra o position:sticky do cabeçalho */
     border-spacing: 0;
     background: var(--surface);
+    overflow: visible;               /* ✅ sobrescreve o 'overflow:hidden' global que quebra o sticky */
   }
 
   /* Pills de Situação (coluna que veio do Histórico) */
