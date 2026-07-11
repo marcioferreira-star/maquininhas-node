@@ -3,15 +3,14 @@
 
 <style>
   /* usa .toolbar/.field/.control/.tbl/.empty do design system (Onda 0) */
-  .tbl { min-width: 1080px; }                 /* desktop: rola no .table-scroll */
-  .nome-cell span, .prod-cell span, .com-cell span, .obs-cell span {
-    display: inline-block; max-width: 150px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
-  }
+  /* table-layout:fixed + colgroup = colunas proporcionais (sem lacuna); truncagem por célula */
+  .tbl { table-layout: fixed; min-width: 1080px; }
+  .tbl tbody td { overflow: hidden; text-overflow: ellipsis; }   /* nowrap é global no .tbl td */
+  .nome-cell span, .prod-cell span, .com-cell span, .obs-cell span { vertical-align: middle; }
 
   /* MOBILE (<=720): a tabela vira CARDS (DOM único — tr vira card, td vira linha rótulo:valor) */
   @media (max-width: 720px) {
-    .tbl { min-width: 0; }
+    .tbl { table-layout: auto; min-width: 0; }
     .tbl thead { display: none; }
     .tbl, .tbl tbody { display: block; }
     .tbl tbody tr.linha {
@@ -22,7 +21,7 @@
     .tbl tbody tr:nth-child(odd) td, .tbl tbody tr:hover td { background: transparent; }
     .tbl tbody tr.linha td {
       display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4);
-      padding: 5px 0; border: none; white-space: normal;
+      padding: 5px 0; border: none; white-space: normal; overflow: visible; text-overflow: clip;
     }
     .tbl tbody tr.linha td::before {
       content: attr(data-label); flex: 0 0 auto;
@@ -39,8 +38,6 @@
 </style>
 
 <div class="main-content">
-
-  <h1>Histórico de Movimentações</h1>
 
   <% if (typeof erro !== "undefined" && erro) { %>
     <div class="alert alert--danger">
@@ -65,6 +62,18 @@
   <!-- TABELA (uma só: .table-scroll = scroll interno 68vh + thead sticky) -->
   <div class="table-scroll">
     <table class="tbl">
+      <colgroup>
+        <col style="width:11%">   <!-- Serial -->
+        <col style="width:7%">    <!-- ID Evento -->
+        <col style="width:8%">    <!-- Ação -->
+        <col style="width:8.5%">  <!-- Data Envio -->
+        <col style="width:8.5%">  <!-- Data Retorno -->
+        <col style="width:8%">    <!-- Usuário -->
+        <col style="width:14%">   <!-- Nome Evento -->
+        <col style="width:12%">   <!-- Produtora -->
+        <col style="width:11%">   <!-- Comercial -->
+        <col style="width:12%">   <!-- Observação -->
+      </colgroup>
       <thead>
         <tr>
           <th>Nº Serial</th>
