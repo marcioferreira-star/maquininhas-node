@@ -78,6 +78,27 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-11 (tarde) — Cutover Neon Fases 0–1 (fundação de LEITURA) + ops
+Plano do cutover em `docs/CUTOVER-NEON-2026-07-11.md` (recomenda read-cutover faseado, **NÃO** aposentar
+a planilha agora — GAS bound + operadores + curadoria pausada). Marcio aprovou começar Fases 0–1.
+- **Fase 0 — espelho completo (`sync-neon.js` v2):** INNER→**LEFT JOIN** na promoção (para de **descartar
+  órfãos**: movimento 1354→1396, perda 5→47, troca 1→26, localizacao 0→15) + `MIGRATION_V2_DDL`
+  idempotente auto-aplicada (satélites `maquina_id` NULLABLE + `serial` cru; **denormalizados** do HISTORICO
+  em `movimento` — nome/produtora/comercial/acao/status crus — e da CONTROLE em `maquina` — id/nome/produtora/
+  comercial crus). `STAGING_DDL` virou DROP+CREATE (staging é transiente; não fossiliza schema).
+  Migration versionada em `db/migrations/2026-07-11-v2-orfaos-denormalizado.sql`. Verificado contra Neon real.
+- **Fase 1 — adapters de leitura + seletor:** `src/repo/sheets.js` + `src/repo/neon.js` (mesma interface;
+  o neon reconstrói o shape EXATO da planilha das colunas denormalizadas — datas via `to_char`, `'-'` p/
+  vazio — e reusa `montarHistorico`). `db.js` virou **SELETOR por `READ_BACKEND`** (default `sheets` =
+  idêntico ao anterior; **`getMaquinasIndex` + `getEventoInfo` ficam SEMPRE sheets** — escrita precisa de
+  dado fresco). `tools/parity.js`: shadow sheets×neon com whitelist → **diff_real=0** (552=552, 1396=1396).
+  Smoke nos 2 backends: `getResumo` idêntico. **`READ_BACKEND` NÃO setado em prod** → Neon dormant.
+- **Falta:** Fase 2 (flip `READ_BACKEND=neon` por rota após shadow de dias) + Fases 3–5 + as **8 decisões**
+  do §6 do doc (clonar GAS, destino da planilha, 5 seriais "Em Uso × Perdida", curadoria).
+- **Ops do dia:** `EXCECOES_ATIVAS=1` ligado em prod; `SESSION_SECRET` rotacionado (`vercel env`, valor nunca
+  impresso); alias `maquininhas-preview` removido. ⚠️ classificador do harness barra `vercel env` de SECRET
+  em prod se o Marcio não NOMEAR o secret (feature-flag passa; secret exige naming explícito).
+
 ### 2026-07-11 — Redesenho "A Densificada" (Ondas 0–6) EM PRODUÇÃO
 Reskin + reestruturação de CSS/markup guiado pelo plano `docs/DESIGN-PROPOSTA-2026-07.md` (direção A
 + densidade da B; alvo `docs/design/direcao-a-operacional-limpa.html`). **Zero mudança em db/sheet/rotas/
