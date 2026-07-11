@@ -90,12 +90,13 @@ async function criarDetector(): Promise<Detector> {
 
 const vibrar = (p: number | number[]) => { try { navigator.vibrate?.(p); } catch { /* sem haptics */ } };
 
-export function BarcodeScanner({ onChange, onLeu, onClose, existing = [], titulo = "Escanear código de barras" }: {
+export function BarcodeScanner({ onChange, onLeu, onClose, existing = [], titulo = "Escanear código de barras", statusDe }: {
   onChange?: (codes: string[]) => void;
   onLeu?: (code: string) => void;        // legado (opcional) — o fluxo novo usa onChange(codes[])
   onClose: () => void;
   existing?: string[];
   titulo?: string;
+  statusDe?: (code: string) => string;   // maquininhas: status da máquina p/ mostrar ao lado do serial bipado
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const trackRef = useRef<MediaStreamTrack | null>(null);
@@ -492,7 +493,7 @@ export function BarcodeScanner({ onChange, onLeu, onClose, existing = [], titulo
                             onBlur={(e) => confirmarEdicao(it.id, e.target.value)}
                           />
                         ) : (
-                          <span className="scan-seq-code mono">{it.code}</span>
+                          <span className="scan-seq-code mono">{it.code}{statusDe && statusDe(it.code) ? <span className="scan-seq-status"> · {statusDe(it.code)}</span> : null}</span>
                         )}
                         <span className="scan-seq-acts">
                           <button type="button" title="Trocar por bipe" aria-label="trocar por bipe" onClick={() => iniciarTroca(it.id)}><Icon name="refresh" size={14} /></button>

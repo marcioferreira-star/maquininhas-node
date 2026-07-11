@@ -419,7 +419,12 @@ if (btnBipar) {
   } else {
     btnBipar.addEventListener("click", () => {
       if (typeof ScannerBipe === "undefined") { showToast("Leitor ainda carregando, tente de novo.", "err"); return; }
-      ScannerBipe.abrir({ onLeu: biparSerial, existing: selecionadas.slice(), titulo: "Bipar máquina" });
+      ScannerBipe.abrir({
+        onLeu: biparSerial,
+        existing: selecionadas.slice(),
+        statusDe: (code) => { const c = serialCanonicoPorNorm[normSerial(code)]; return c ? (maquinasPorSerial[c] || "") : ""; },
+        titulo: "Bipar máquina"
+      });
     });
   }
 }

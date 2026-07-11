@@ -570,3 +570,4 @@ a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border
 .scan-seq-acts { display: inline-flex; gap: 2px; flex-shrink: 0; }
 .scan-seq-acts button { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: var(--muted); border-radius: var(--radius-sm); cursor: pointer; }
 .scan-seq-acts button:hover { background: var(--panel); color: var(--text); }
+.scan-seq-status { color: var(--muted); font-weight: 400; }

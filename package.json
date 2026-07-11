@@ -12,7 +12,7 @@
     "start": "node src/server.js",
     "test": "node --test",
     "lint": "eslint src test",
-    "build:scanner": "esbuild src/scanner-island/entry.tsx --bundle --format=iife --minify --jsx=automatic --define:process.env.NODE_ENV=\"production\" --outfile=src/public/vendor/scanner-torre.js"
+    "build:scanner": "node scripts/build-scanner.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

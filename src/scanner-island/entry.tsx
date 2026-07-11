@@ -19,6 +19,7 @@ setZXingModuleOverrides({
 interface AbrirOpts {
   onLeu?: (code: string) => unknown;      // por código aceito → o Envio faz biparSerial
   onChange?: (codes: string[]) => void;    // sequência do modal mudou
+  statusDe?: (code: string) => string;     // status da máquina p/ mostrar no item bipado
   titulo?: string;
   existing?: string[];
 }
@@ -37,6 +38,7 @@ interface AbrirOpts {
         titulo: opts.titulo || "Bipar máquina",
         onLeu: opts.onLeu,
         onChange: opts.onChange,
+        statusDe: opts.statusDe,
         onClose: fechar,
         existing: opts.existing || [],
       })
