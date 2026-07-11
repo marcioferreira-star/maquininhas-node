@@ -2,264 +2,106 @@
 <%- include('partials/sidebar', { page: 'historico', user }) %>
 
 <style>
-/* ------------------------- */
-/* CAIXA DE FILTROS */
-/* ------------------------- */
-.filter-box {
-  background: var(--surface);
-  padding: 18px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  display: flex;
-  gap: 15px;
-  margin-bottom: 22px;
-  box-shadow: var(--shadow);
-}
-
-.filter-box input,
-.filter-box select {
-  flex: 1;
-  height: 40px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  padding-left: 12px;
-  font-size: 15px;
-}
-
-/* ------------------------- */
-/* ÁREA DA TABELA */
-/* ------------------------- */
-.box-wrapper {
-  background: var(--surface);
-  padding: 0;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
-
-/* ------------------------- */
-/* CABEÇALHO */
-/* ------------------------- */
-.table-head {
-  width: 100%;
-  background: var(--table-head-bg);
-  border-bottom: 1px solid var(--border);
-  z-index: 5;
-  overflow-x: hidden; /* desktop ok */
-}
-
-.table-history {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed; /* desktop ok */
-}
-
-.table-history thead th {
-  padding: 12px;
-  color: var(--table-head-fg);
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left;
-  border-right: 1px solid rgba(255,255,255,0.1);
-}
-
-.table-history thead th:last-child {
-  border-right: none;
-}
-
-/* ------------------------- */
-/* CORPO COM SCROLL */
-/* ------------------------- */
-.table-body {
-  max-height: 490px;
-  overflow-y: auto;
-  overflow-x: hidden; /* no mobile a gente libera */
-}
-
-.table-body::-webkit-scrollbar {
-  width: 8px;
-}
-.table-body::-webkit-scrollbar-thumb {
-  background: #b7b7b7;
-  border-radius: 20px;
-}
-.table-body::-webkit-scrollbar-thumb:hover {
-  background: #929292;
-}
-
-/* ------------------------- */
-/* LINHAS DA TABELA */
-/* ------------------------- */
-.table-history tbody tr {
-  background: var(--surface);
-  transition: 0.15s;
-}
-
-.table-history tbody tr:nth-child(odd) {
-  background: var(--surface-2);
-}
-
-.table-history tbody tr:hover {
-  background: var(--surface-3);
-}
-
-.table-history td {
-  padding: 12px;
-  font-size: 14px;
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
-  word-wrap: break-word;
-}
-
-/* ------------------------- */
-/* SEM RESULTADOS */
-/* ------------------------- */
-.empty-msg {
-  text-align: center;
-  padding: 25px;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-/* ✅ MOBILE: filtros quebram e tabela vira scroll horizontal (sem texto “em pé”) */
-@media (max-width: 900px){
-  .filter-box{
-    flex-wrap: wrap;
-  }
-  .filter-box input,
-  .filter-box select{
-    flex: 1 1 48%;
-    min-width: 160px;
+  /* usa .toolbar/.field/.control/.tbl/.empty do design system (Onda 0) */
+  .tbl { min-width: 1080px; }                 /* desktop: rola no .table-scroll */
+  .nome-cell span, .prod-cell span, .com-cell span, .obs-cell span {
+    display: inline-block; max-width: 150px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
   }
 
-  .box-wrapper{
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
+  /* MOBILE (<=720): a tabela vira CARDS (DOM único — tr vira card, td vira linha rótulo:valor) */
+  @media (max-width: 720px) {
+    .tbl { min-width: 0; }
+    .tbl thead { display: none; }
+    .tbl, .tbl tbody { display: block; }
+    .tbl tbody tr.linha {
+      display: block; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius-md);
+      padding: var(--space-3); margin-bottom: var(--space-3);
+    }
+    .tbl tbody tr:nth-child(odd) td, .tbl tbody tr:hover td { background: transparent; }
+    .tbl tbody tr.linha td {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4);
+      padding: 5px 0; border: none; white-space: normal;
+    }
+    .tbl tbody tr.linha td::before {
+      content: attr(data-label); flex: 0 0 auto;
+      font-weight: 600; font-size: var(--fs-xs); color: var(--muted);
+      text-transform: uppercase; letter-spacing: .03em;
+    }
+    .tbl tbody tr.linha td.c-serial { font-size: var(--fs-lg); font-weight: 700; padding: 0 0 var(--space-2); margin-bottom: var(--space-2); border-bottom: 1px solid var(--border); }
+    .tbl tbody tr.linha td.c-serial::before { display: none; }
+    /* no card, sem hover/tooltip: mostra o texto inteiro (quebra linha) */
+    .nome-cell span, .prod-cell span, .com-cell span, .obs-cell span {
+      max-width: 62%; white-space: normal; overflow: visible; text-overflow: clip; text-align: right;
+    }
   }
-
-  .table-head{
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .table-body{
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .table-history{
-    min-width: 1100px;
-    table-layout: auto !important;
-  }
-
-  .table-history th,
-  .table-history td{
-    white-space: nowrap;
-    word-wrap: normal;
-  }
-}
 </style>
 
 <div class="main-content">
 
-  <h1 style="margin-bottom: 22px; font-weight:700;">Histórico de Movimentações</h1>
+  <h1>Histórico de Movimentações</h1>
 
   <% if (typeof erro !== "undefined" && erro) { %>
-    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+    <div class="alert alert--danger">
       Não foi possível carregar o histórico agora — a planilha está indisponível. Recarregue em instantes.
     </div>
   <% } %>
 
   <!-- FILTROS -->
-  <div class="filter-box">
-    <input type="text" id="filtroSerial" placeholder="Filtrar Serial">
-    <input type="text" id="filtroEvento" placeholder="Filtrar ID Evento">
-    <select id="filtroAcao">
-      <option value="">Filtrar Ação</option>
-      <option value="envio">Envio</option>
-      <option value="retorno">Retorno</option>
-      <option value="fixo">Fixo</option>
-    </select>
+  <div class="toolbar">
+    <div class="field"><label>Serial</label><input type="text" class="control" id="filtroSerial" placeholder="ex: PBA123, 11703"></div>
+    <div class="field"><label>ID Evento</label><input type="text" class="control" id="filtroEvento" placeholder="ID do evento"></div>
+    <div class="field"><label>Ação</label>
+      <select class="control" id="filtroAcao" data-label="Ação">
+        <option value="">Todas</option>
+        <option value="envio">Envio</option>
+        <option value="retorno">Retorno</option>
+        <option value="fixo">Fixo</option>
+      </select>
+    </div>
   </div>
 
-  <!-- CAIXA DA TABELA -->
-  <div class="box-wrapper">
+  <!-- TABELA (uma só: .table-scroll = scroll interno 68vh + thead sticky) -->
+  <div class="table-scroll">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Nº Serial</th>
+          <th>ID Evento</th>
+          <th>Ação</th>
+          <th>Data Envio</th>
+          <th>Data Retorno</th>
+          <th>Usuário</th>
+          <th>Nome Evento</th>
+          <th>Produtora</th>
+          <th>Comercial</th>
+          <th>Observação</th>
+        </tr>
+      </thead>
+      <tbody id="bodyHistorico">
 
-    <!-- CABEÇALHO FIXO -->
-    <div class="table-head">
-      <table class="table-history">
-        <colgroup>
-          <col style="width:10%">
-          <col style="width:7%">
-          <col style="width:8%">
-          <col style="width:9%">
-          <col style="width:9%">
-          <col style="width:8%">
-          <col style="width:11%">
-          <col style="width:11%">
-          <col style="width:9%">
-          <col style="width:6%">
-        </colgroup>
-        <thead>
-          <tr>
-            <th>Nº Serial</th>
-            <th>ID Evento</th>
-            <th>Ação</th>
-            <th>Data Envio</th>
-            <th>Data Retorno</th>
-            <th>Usuário</th>
-            <th>Nome Evento</th>
-            <th>Produtora</th>
-            <th>Comercial</th>
-            <th>Observação</th>
-          </tr>
-        </thead>
-      </table>
-    </div>
+        <% if (!historico || historico.length === 0) { %>
+          <tr><td colspan="10" class="empty">Nenhum registro encontrado</td></tr>
+        <% } else { %>
+          <% [...historico].reverse().forEach(h => { %>
+            <tr class="linha">
+              <td class="c-serial" data-label="Serial"><%= h.serial || "-" %></td>
+              <td data-label="ID Evento"><%= h.evento || "-" %></td>
+              <td data-label="Ação"><%= h.acao || "-" %></td>
+              <td data-label="Data Envio"><%= h.saida || "-" %></td>
+              <td data-label="Data Retorno"><%= h.retorno || "-" %></td>
+              <td data-label="Usuário"><%= h.usuario || "-" %></td>
+              <td class="nome-cell" data-label="Nome Evento"><span title="<%= (h.nome_evento && h.nome_evento !== '-') ? h.nome_evento : '' %>"><%= h.nome_evento || "-" %></span></td>
+              <td class="prod-cell" data-label="Produtora"><span title="<%= (h.produtora && h.produtora !== '-') ? h.produtora : '' %>"><%= h.produtora || "-" %></span></td>
+              <td class="com-cell" data-label="Comercial"><span title="<%= (h.comercial && h.comercial !== '-') ? h.comercial : '' %>"><%= h.comercial || "-" %></span></td>
+              <td class="obs-cell" data-label="Observação"><span title="<%= (h.obs && h.obs !== '-') ? h.obs : '' %>"><%= h.obs || "-" %></span></td>
+            </tr>
+          <% }) %>
+        <% } %>
 
-    <!-- CORPO COM SCROLL -->
-    <div class="table-body">
-      <table class="table-history">
-        <colgroup>
-          <col style="width:10%">
-          <col style="width:7%">
-          <col style="width:8%">
-          <col style="width:9%">
-          <col style="width:9%">
-          <col style="width:8%">
-          <col style="width:11%">
-          <col style="width:11%">
-          <col style="width:9%">
-          <col style="width:6%">
-        </colgroup>
-        <tbody id="bodyHistorico">
-
-          <% if (!historico || historico.length === 0) { %>
-            <tr><td colspan="10" class="empty-msg">Nenhum registro encontrado</td></tr>
-          <% } else { %>
-            <% [...historico].reverse().forEach(h => { %>
-              <tr>
-                <td><%= h.serial || "-" %></td>
-                <td><%= h.evento || "-" %></td>
-                <td><%= h.acao || "-" %></td>
-                <td><%= h.saida || "-" %></td>
-                <td><%= h.retorno || "-" %></td>
-                <td><%= h.usuario || "-" %></td>
-                <td title="<%= (h.nome_evento && h.nome_evento !== '-') ? h.nome_evento : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.nome_evento || "-" %></td>
-                <td title="<%= (h.produtora && h.produtora !== '-') ? h.produtora : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.produtora || "-" %></td>
-                <td title="<%= (h.comercial && h.comercial !== '-') ? h.comercial : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.comercial || "-" %></td>
-                <td title="<%= (h.obs && h.obs !== '-') ? h.obs : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.obs || "-" %></td>
-              </tr>
-            <% }) %>
-          <% } %>
-
-        </tbody>
-      </table>
-    </div>
-
+      </tbody>
+    </table>
   </div>
 </div>
 
@@ -311,14 +153,4 @@ function aplicarFiltros() {
 filtroSerial.addEventListener("input", aplicarFiltros);
 filtroEvento.addEventListener("input", aplicarFiltros);
 filtroAcao.addEventListener("change", aplicarFiltros);
-
-/* ✅ sincroniza scroll do cabeçalho com o corpo (ajuda MUITO no mobile) */
-(function syncScroll(){
-  const tb = document.querySelector(".table-body");
-  const th = document.querySelector(".table-head");
-  if (!tb || !th) return;
-  tb.addEventListener("scroll", () => {
-    th.scrollLeft = tb.scrollLeft;
-  });
-})();
 </script>
