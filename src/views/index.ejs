@@ -2,144 +2,70 @@
 <%- include('partials/sidebar', { page: 'dashboard', user }) %>
 
 <div class="main-content">
-  <style>
-    h1 {
-      font-size: 28px;
-      font-weight: 800;
-      margin: 0 0 18px 0;
-    }
-    .kpis{
-      display: grid !important;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      width: 100%;
-      max-width: 100%;
-      min-width: 0;
-    }
-    @media (min-width: 1500px){
-      .kpis{
-        grid-template-columns: repeat(5, minmax(220px, 1fr));
-      }
-    }
-    /* cards de superfície com ícone acentuado (identidade Ingresse, light+dark) */
-    .card-kpi {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 16px 18px;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      box-shadow: var(--shadow);
-      min-height: 92px;
-      min-width: 0;
-      width: 100%;
-      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-    }
-    a:hover .card-kpi {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-      border-color: var(--muted);
-    }
-    .kpi-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 13px;
-      display: grid;
-      place-items: center;
-      flex: 0 0 auto;
-    }
-    .kpi-icon svg { width: 24px; height: 24px; }
-    .kpi-body { min-width: 0; }
-    .kpi-label { font-size: 13.5px; font-weight: 600; color: var(--muted); }
-    .kpi-value { font-size: 32px; font-weight: 800; color: var(--text); line-height: 1.05; margin-top: 2px; }
-    /* accent por métrica — só o ícone é colorido (tinta suave); Atrasadas usa Blood Orange */
-    .kpi-total     .kpi-icon { background: rgba(11,92,173,.14);  color: var(--info); }
-    .kpi-disp      .kpi-icon { background: rgba(31,122,55,.16);  color: var(--ok); }
-    .kpi-uso       .kpi-icon { background: rgba(180,120,20,.18); color: var(--warn); }
-    .kpi-atrasadas .kpi-icon { background: rgba(255,39,26,.14);  color: var(--brand); }
-    .kpi-fixas     .kpi-icon { background: rgba(124,92,255,.18); color: #7c5cff; }
-    .subkpis { display: flex; gap: 14px; margin-top: 8px; }
-    .subkpis .kpi-label { font-size: 11.5px; }
-    .subkpis .kpi-value { font-size: 19px; font-weight: 700; }
-    @media (max-width: 480px){
-      .kpi-value{ font-size: 28px; }
-    }
-  </style>
 
   <h1>Dashboard</h1>
 
   <% if (typeof erro !== "undefined" && erro) { %>
-    <div style="background:#f8ebe9;border:1px solid #d9534f;color:#a12a22;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-weight:600;">
+    <div class="alert alert--danger">
       Não foi possível carregar os dados agora — a planilha está indisponível. Recarregue a página em instantes.
     </div>
   <% } %>
 
   <!-- KPIs clicáveis: cada card abre a tela Máquinas já filtrada (querystring). -->
-  <div class="kpis">
-    <a href="/maquinas" style="display:contents" aria-label="Ver todas as máquinas">
-    <div class="card-kpi kpi-total">
-      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/></svg></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Total</div>
-        <div class="kpi-value" id="kpiTotal">0</div>
+  <div class="kpi-grid">
+    <a href="/maquinas" class="kpi-link" aria-label="Ver todas as máquinas">
+      <div class="kpi">
+        <div class="kpi__top">
+          <span class="kpi__label">Total</span>
+          <span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5"/><path d="M12 12v9"/><path d="M12 12L4 7.5"/></svg></span>
+        </div>
+        <div class="kpi__value" id="kpiTotal">0</div>
       </div>
-    </div>
     </a>
 
-    <a href="/maquinas?f=estoque" style="display:contents" aria-label="Ver máquinas disponíveis (em estoque)">
-    <div class="card-kpi kpi-disp">
-      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2l4-4"/></svg></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Disponíveis</div>
-        <div class="kpi-value" id="kpiDisp">0</div>
-
-        <div class="subkpis">
-          <div style="flex:1">
-            <div class="kpi-label">SP</div>
-            <div class="kpi-value" id="kpiDispSP">0</div>
-          </div>
-          <div style="flex:1">
-            <div class="kpi-label">RJ</div>
-            <div class="kpi-value" id="kpiDispRJ">0</div>
-          </div>
-          <div style="flex:1">
-            <div class="kpi-label">URA</div>
-            <div class="kpi-value" id="kpiDispURA">0</div>
-          </div>
+    <a href="/maquinas?f=estoque" class="kpi-link" aria-label="Ver máquinas disponíveis (em estoque)">
+      <div class="kpi">
+        <div class="kpi__top">
+          <span class="kpi__label">Disponíveis</span>
+          <span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2l4-4"/></svg></span>
+        </div>
+        <div class="kpi__value" id="kpiDisp">0</div>
+        <div class="kpi__sub">
+          <div><span>SP</span><b id="kpiDispSP">0</b></div>
+          <div><span>RJ</span><b id="kpiDispRJ">0</b></div>
+          <div><span>URA</span><b id="kpiDispURA">0</b></div>
         </div>
       </div>
-    </div>
     </a>
 
-    <a href="/maquinas?f=em%20uso" style="display:contents" aria-label="Ver máquinas em uso">
-    <div class="card-kpi kpi-uso">
-      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-3"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="17" cy="18" r="1.7"/></svg></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Em Uso</div>
-        <div class="kpi-value" id="kpiUso">0</div>
+    <a href="/maquinas?f=em%20uso" class="kpi-link" aria-label="Ver máquinas em uso">
+      <div class="kpi">
+        <div class="kpi__top">
+          <span class="kpi__label">Em Uso</span>
+          <span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3v3h-3"/><circle cx="6.5" cy="18" r="1.7"/><circle cx="17" cy="18" r="1.7"/></svg></span>
+        </div>
+        <div class="kpi__value" id="kpiUso">0</div>
       </div>
-    </div>
     </a>
 
-    <a href="/maquinas?retorno=atrasada" style="display:contents" aria-label="Ver máquinas atrasadas">
-    <div class="card-kpi kpi-atrasadas">
-      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Atrasadas</div>
-        <div class="kpi-value" id="kpiAtras">0</div>
+    <a href="/maquinas?retorno=atrasada" class="kpi-link" aria-label="Ver máquinas atrasadas">
+      <div class="kpi kpi--accent">
+        <div class="kpi__top">
+          <span class="kpi__label">Atrasadas</span>
+          <span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        </div>
+        <div class="kpi__value" id="kpiAtras">0</div>
       </div>
-    </div>
     </a>
 
-    <a href="/maquinas?f=fixo" style="display:contents" aria-label="Ver máquinas fixas">
-    <div class="card-kpi kpi-fixas">
-      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 6-8 6-11a6 6 0 1 0-12 0c0 3 2 6 6 11z"/><circle cx="12" cy="10" r="2"/></svg></div>
-      <div class="kpi-body">
-        <div class="kpi-label">Fixas</div>
-        <div class="kpi-value" id="kpiFixas">0</div>
+    <a href="/maquinas?f=fixo" class="kpi-link" aria-label="Ver máquinas fixas">
+      <div class="kpi">
+        <div class="kpi__top">
+          <span class="kpi__label">Fixas</span>
+          <span class="kpi__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c4-5 6-8 6-11a6 6 0 1 0-12 0c0 3 2 6 6 11z"/><circle cx="12" cy="10" r="2"/></svg></span>
+        </div>
+        <div class="kpi__value" id="kpiFixas">0</div>
       </div>
-    </div>
     </a>
   </div>
 

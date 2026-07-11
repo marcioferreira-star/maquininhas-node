@@ -178,39 +178,41 @@ body {
 .sidebar .logo {
   display: flex;
   align-items: center;
+  gap: 11px;
   width: 100%;
-  margin-bottom: 18px;
+  padding: 18px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, .10);
 }
+.sidebar .logo img { height: 30px; width: auto; object-fit: contain; }
+.sidebar .logo .logo-name { font-weight: 700; font-size: var(--fs-lg); color: var(--sidebar-fg); letter-spacing: -.01em; }
 
-.sidebar .logo img {
-  width: 145px;
-  object-fit: contain;
-}
-
-.sidebar ul { list-style: none; width: 100%; }
-.sidebar ul li { width: 100%; margin: 5px 0; }
+.sidebar ul { list-style: none; width: 100%; padding: 8px; }
+.sidebar ul li { width: 100%; margin: 2px 0; }
 
 .sidebar ul li a {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 12px;
+  padding: 10px 12px;
   text-decoration: none;
   color: var(--sidebar-fg);
   font-weight: 500;
+  font-size: var(--fs-base);
   border-radius: 8px;
-  transition: background .2s, padding-left .2s;
+  transition: background .15s, color .15s;
 }
+.sidebar ul li a svg { flex: 0 0 auto; opacity: .82; }
 
-.sidebar ul li a:hover {
-  background-color: var(--sidebar-hover-bg);
-  padding-left: 16px;
-}
+.sidebar ul li a:hover { background: var(--sidebar-hover-bg); }
 
-.sidebar ul li.active a {
-  background-color: var(--sidebar-active-bg);
-  color: var(--brand-contrast);
+/* ativo (estilo A): fundo sutil + ícone Blood Orange + barra 3px à esquerda */
+.sidebar ul li.active a { background: rgba(255, 255, 255, .06); color: #fff; font-weight: 600; }
+.sidebar ul li.active a::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--brand);
 }
+.sidebar ul li.active a svg { color: var(--brand); opacity: 1; }
 
 /* =============================================== */
 /* === CONTEÚDO PRINCIPAL === */
@@ -224,10 +226,8 @@ body {
   background-color: var(--bg);
 }
 
-h1, h2 {
-  color: var(--text);
-  margin-bottom: 20px;
-}
+h1 { font-size: var(--fs-2xl); font-weight: 700; color: var(--text); margin-bottom: var(--space-5); letter-spacing: -.01em; }
+h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--text); margin-bottom: var(--space-4); }
 
 /* =============================================== */
 /* === TABELA (base compartilhada) === */
@@ -502,9 +502,65 @@ dialog.dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .dialog__foot { display: flex; justify-content: flex-end; gap: var(--space-2); }
 .dialog__body .control { width: 100%; margin-bottom: var(--space-4); }
 
+/* =====================================================================
+   SHELL + DASHBOARD (Onda 1) — layout, top-header, drawer, KPI cards
+===================================================================== */
+.app-shell { min-height: 100vh; display: flex; width: 100%; max-width: 100%; overflow-x: hidden; }
+.sidebar { width: 220px; flex: 0 0 220px; }
+.app-main { flex: 1; min-width: 0; display: flex; flex-direction: column; max-width: 100%; }
+
+.top-header {
+  height: 52px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 var(--space-4); gap: var(--space-3); min-width: 0;
+}
+.btn-menu { display: none; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 9px; line-height: 1; cursor: pointer; }
+.top-header-right { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.user-info { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-base); font-weight: 600; color: var(--text); white-space: nowrap; max-width: 45vw; overflow: hidden; text-overflow: ellipsis; }
+.user-info svg { width: 18px; height: 18px; color: var(--muted); flex: 0 0 auto; }
+.theme-toggle {
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+  border-radius: var(--radius-full); width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 auto;
+  transition: color .15s, border-color .15s;
+}
+.theme-toggle:hover { color: var(--brand); border-color: var(--brand); }
+.theme-toggle svg { width: 19px; height: 19px; }
+.theme-toggle .ic-moon { display: inline-flex; } .theme-toggle .ic-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .ic-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .ic-sun { display: inline-flex; }
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, .35); z-index: 998; }
+.overlay.show { display: block; }
+
+/* KPI cards (estilo A): label+ícone no topo, valor grande tabular, acento só na de ação */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-4); }
+@media (min-width: 1400px) { .kpi-grid { grid-template-columns: repeat(5, 1fr); } }
+.kpi-link { display: block; text-decoration: none; color: inherit; border-radius: var(--radius-lg); }
+.kpi-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s, border-color .15s; }
+a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
+.kpi__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.kpi__label { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.kpi__ic { width: 32px; height: 32px; flex: none; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); }
+.kpi__ic svg { width: 18px; height: 18px; }
+.kpi__value { font-size: var(--fs-3xl); font-weight: 700; line-height: 1; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi--accent .kpi__ic { background: var(--brand-soft); color: var(--brand); }
+.kpi__sub { display: flex; gap: var(--space-5); margin-top: var(--space-1); }
+.kpi__sub b { display: block; font-size: var(--fs-lg); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.kpi__sub span { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
 /* =============================================== */
 /* === RESPONSIVIDADE === */
 /* =============================================== */
+@media (max-width: 1024px) {
+  .app-shell { display: block; }
+  .btn-menu { display: inline-flex; align-items: center; justify-content: center; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: 84vw; max-width: 320px;
+    transform: translateX(-100%); transition: transform .2s ease; z-index: 999; overflow-y: auto;
+  }
+  .sidebar.open { transform: translateX(0); }
+}
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
+  a:hover .kpi { transform: none; }
 }
