@@ -52,7 +52,8 @@
   table {
     width: 100%;
     min-width: 1080px;               /* ✅ evita esmagar colunas (Situação + Nome Evento) */
-    border-collapse: collapse;
+    border-collapse: separate;       /* ✅ 'collapse' quebra o position:sticky do cabeçalho */
+    border-spacing: 0;
     background: var(--surface);
   }
 
@@ -83,6 +84,7 @@
     font-size: 14px;
     z-index: 5;
     white-space: nowrap;             /* ✅ não quebra letra por letra */
+    border-bottom: 1px solid var(--border); /* separa do corpo (sem o collapse) */
   }
 
   tbody td {
