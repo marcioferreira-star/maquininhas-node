@@ -452,7 +452,7 @@ footer {
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--surface);
 }
-.tbl { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); font-size: var(--fs-md); }
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); font-size: var(--fs-md); overflow: visible; }
 .tbl thead th {
   position: sticky; top: 0; z-index: 5;
   background: var(--table-head-bg); color: var(--table-head-fg);
