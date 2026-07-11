@@ -112,3 +112,27 @@ export function situacaoPrazo(acao, retornoBR) {
   if (ret.getTime() === hoje.getTime()) return "Vence hoje";
   return "Dentro do prazo";
 }
+
+/**
+ * Situação de prazo de uma MÁQUINA, derivada do STATUS ATUAL (não de uma ação).
+ * Usada na aba "Máquinas Cadastradas" (a coluna que saiu do Histórico).
+ *  - Em Uso  → compara a data de retorno com hoje (Atrasado / Vence hoje / Dentro do prazo);
+ *              sem data de retorno = "Sem data".
+ *  - Fixo    → "Fixo" (instalada, não retorna).
+ *  - Estoque → "Disponível" (voltou / pronta pra enviar).
+ *  - Outros (Perdida/Defeito/Localizar/…) → "" (o front mostra o status factual).
+ */
+export function situacaoDeMaquina(status, retornoBR) {
+  const s = String(status || "").toLowerCase();
+  if (s.startsWith("em uso")) {
+    const ret = parseBRDate(retornoBR);
+    if (!ret) return "Sem data";
+    const hoje = startOfDayLocal();
+    if (ret < hoje) return "Atrasado";
+    if (ret.getTime() === hoje.getTime()) return "Vence hoje";
+    return "Dentro do prazo";
+  }
+  if (s === "fixo") return "Fixo";
+  if (s.startsWith("estoque")) return "Disponível";
+  return "";
+}

@@ -51,10 +51,28 @@
 
   table {
     width: 100%;
-    min-width: 900px;                /* ✅ evita esmagar colunas */
+    min-width: 1080px;               /* ✅ evita esmagar colunas (Situação + Nome Evento) */
     border-collapse: collapse;
     background: var(--surface);
   }
+
+  /* Pills de Situação (coluna que veio do Histórico) */
+  .pill-sit {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .pill-sit.atrasado   { background: #d9534f; }
+  .pill-sit.vence      { background: #e0a800; color: #1A1A1A; }
+  .pill-sit.noprazo    { background: #28a745; }
+  .pill-sit.disponivel { background: #5a87c9; }
+  .pill-sit.fixo       { background: #6c757d; }
+  .pill-sit.semdata    { background: #6c757d; }
 
   thead th {
     position: sticky;
@@ -122,11 +140,15 @@
       <option value="">Status</option>
     </select>
 
+    <select id="filtroSituacao" data-label="Situação">
+      <option value="">Situação</option>
+    </select>
+
     <select id="filtroEmpresa" data-label="Empresa">
       <option value="">Empresa</option>
     </select>
 
-    <input type="text" id="filtroEvento" inputmode="numeric" placeholder="ID Evento (ex: 90123,11703)">
+    <input type="text" id="filtroEvento" placeholder="Evento (ID ou nome)">
 
     <select id="filtroRetorno" data-label="Retorno">
       <option value="">Retorno</option>
@@ -150,8 +172,10 @@
           <th>Modelo</th>
           <th>Nº Serial</th>
           <th>Status</th>
+          <th>Situação</th>
           <th>Empresa</th>
           <th>ID Evento</th>
+          <th>Nome Evento</th>
           <th>Data Retorno</th>
           <th>Obs</th>
           <th>Ação</th>
@@ -172,6 +196,7 @@
           data-comercial="<%= (m.comercial || '-') %>"
           data-retorno="<%= (m.dataRetorno || '-') %>"
           data-processando="<%= (m.processando || '-').trim() %>"
+          data-situacao="<%= m.situacao || '' %>"
         >
           <td><%= i + 1 %></td>
           <td><%= m.modelo || '-' %></td>
@@ -186,10 +211,19 @@
             </select>
           </td>
 
+          <!-- ✅ Situação (derivada do status; veio do Histórico) -->
+          <td>
+            <% const _sitCls = { "Atrasado":"atrasado","Vence hoje":"vence","Dentro do prazo":"noprazo","Disponível":"disponivel","Fixo":"fixo","Sem data":"semdata" }[m.situacao] || ""; %>
+            <% if (m.situacao) { %><span class="pill-sit <%= _sitCls %>"><%= m.situacao %></span><% } else { %>-<% } %>
+          </td>
+
           <td><%= m.empresa || '-' %></td>
 
           <!-- ✅ Fixo também mostra evento -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.idEvento || '-') : "-" %></td>
+
+          <!-- ✅ Nome do evento (ao lado do ID) -->
+          <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.nomeEvento || '-') : "-" %></td>
 
           <!-- ✅ Fixo também mostra retorno (vai ser "-") -->
           <td><%= (m.status.startsWith("Em Uso") || m.status === "Fixo") ? (m.dataRetorno || '-') : "-" %></td>
@@ -199,7 +233,6 @@
           <% const _tip = [ (m.operadora && m.operadora !== '-') ? ('Operadora: ' + m.operadora) : '', (m.infoChip && m.infoChip !== '-') ? ('Chip: ' + m.infoChip) : '', _obs ? ('Obs: ' + _obs) : '' ].filter(Boolean).join('  |  '); %>
           <td class="obs-cell" title="<%= _tip %>">
             <span style="display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;"><%= _obs %></span>
-            <% if (String(m.processando).trim() === 'Sim') { %><span class="badge-proc">proc.</span><% } %>
           </td>
 
           <td>
@@ -216,7 +249,7 @@
         <% }) %>
 
         <tr id="emptyRow" class="empty-row" style="<%= maquinas.length === 0 ? '' : 'display:none' %>">
-          <td colspan="9">Nenhuma máquina encontrada para os filtros aplicados.</td>
+          <td colspan="11">Nenhuma máquina encontrada para os filtros aplicados.</td>
         </tr>
       </tbody>
     </table>
@@ -230,14 +263,47 @@
       VARIÁVEIS
 ============================================================ */
 const linhas = [...document.querySelectorAll(".linha")];
-const filtroSerial  = document.getElementById("filtroSerial");
-const filtroStatus  = document.getElementById("filtroStatus");
-const filtroEmpresa = document.getElementById("filtroEmpresa");
-const filtroEvento  = document.getElementById("filtroEvento");
-const filtroRetorno = document.getElementById("filtroRetorno");
+const filtroSerial   = document.getElementById("filtroSerial");
+const filtroStatus   = document.getElementById("filtroStatus");
+const filtroSituacao = document.getElementById("filtroSituacao");
+const filtroEmpresa  = document.getElementById("filtroEmpresa");
+const filtroEvento   = document.getElementById("filtroEvento");
+const filtroRetorno  = document.getElementById("filtroRetorno");
 const btnLimpar     = document.getElementById("btnLimpar");
 const btnExportar   = document.getElementById("btnExportar");
 const contador      = document.getElementById("contador");
+
+/* ============================================================
+      SITUAÇÃO (client) — usado no update in-place após Salvar.
+      Espelha src/utils/datas.js:situacaoDeMaquina (a 1ª renderização
+      vem do servidor, com fuso BRT correto).
+============================================================ */
+const SIT_CLS = {
+  "Atrasado": "atrasado",
+  "Vence hoje": "vence",
+  "Dentro do prazo": "noprazo",
+  "Disponível": "disponivel",
+  "Fixo": "fixo",
+  "Sem data": "semdata"
+};
+function situacaoClient(status, retornoBR) {
+  const s = String(status || "").toLowerCase();
+  if (s.startsWith("em uso")) {
+    if (!retornoBR || retornoBR === "-") return "Sem data";
+    const [dd, mm, yy] = String(retornoBR).split("/");
+    const dt = new Date(Number(yy), Number(mm) - 1, Number(dd));
+    if (isNaN(dt.getTime())) return "Sem data";
+    const h = new Date();
+    const hoje = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+    const diff = Math.round((dt - hoje) / 86400000);
+    if (diff < 0) return "Atrasado";
+    if (diff === 0) return "Vence hoje";
+    return "Dentro do prazo";
+  }
+  if (s === "fixo") return "Fixo";
+  if (s.startsWith("estoque")) return "Disponível";
+  return "";
+}
 
 /* ============================================================
       FILTRO INICIAL (vindo do dashboard via querystring)
@@ -262,6 +328,7 @@ function atualizarContador() {
 function aplicarFiltros() {
   const txt = filtroSerial.value.toLowerCase();
   const st  = filtroStatus.value;
+  const sit = filtroSituacao.value;
   const emp = filtroEmpresa.value;
   const ev  = filtroEvento.value;
   const ret = filtroRetorno.value;
@@ -271,11 +338,13 @@ function aplicarFiltros() {
   linhas.forEach(row => {
     let mostrar = true;
 
-    const serial  = row.dataset.serial;
-    const status  = row.dataset.status;
-    const empresa = row.dataset.empresa;
-    const evento  = row.dataset.evento;
-    const retorno = row.dataset.retorno;
+    const serial   = row.dataset.serial;
+    const status   = row.dataset.status;
+    const situacao = row.dataset.situacao;
+    const empresa  = row.dataset.empresa;
+    const evento   = row.dataset.evento;
+    const nome     = row.dataset.nomeevento;
+    const retorno  = row.dataset.retorno;
 
     /* ----- Serial (múltiplos) ----- */
     if (txt) {
@@ -284,21 +353,22 @@ function aplicarFiltros() {
     }
 
     if (st && status !== st) mostrar = false;
+    if (sit && situacao !== sit) mostrar = false;
     // filtro inicial por substring de status (vindo do KPI do dashboard)
     if (statusInicial && !(status || "").toLowerCase().includes(statusInicial)) mostrar = false;
     if (emp && empresa !== emp) mostrar = false;
-    /* ----- Evento (múltiplos) ----- */
+    /* ----- Evento (múltiplos): casa por ID exato OU por substring do nome ----- */
     if (ev) {
       const termosEv = String(ev)
-      .split(",")
-      .map(t => t.trim())
-      .filter(Boolean);
+        .split(",")
+        .map(t => t.trim().toLowerCase())
+        .filter(Boolean);
 
-    // compara como string pra não dar problema de número vs texto
-     const eventoStr = String(evento || "").trim();
+      const eventoStr = String(evento || "").trim().toLowerCase();
+      const nomeStr   = String(nome || "").trim().toLowerCase();
 
-    if (!termosEv.some(t => eventoStr === t)) mostrar = false;
-}
+      if (!termosEv.some(t => eventoStr === t || nomeStr.includes(t))) mostrar = false;
+    }
 
     /* ----- Filtro de retorno ----- */
     if (ret) {
@@ -355,18 +425,15 @@ function atualizarFiltro(select, values) {
 function atualizarFiltrosInteligentes() {
   const vis = linhas.filter(l => l.style.display !== "none");
 
-  atualizarFiltro(filtroStatus,  [...new Set(vis.map(l => l.dataset.status))]);
-  atualizarFiltro(filtroEmpresa, [...new Set(vis.map(l => l.dataset.empresa))]);
-  atualizarFiltro(
-    filtroEvento,
-    [...new Set(vis.map(l => l.dataset.evento))].filter(x => x && x !== "-")
-  );
+  atualizarFiltro(filtroStatus,   [...new Set(vis.map(l => l.dataset.status))]);
+  atualizarFiltro(filtroSituacao, [...new Set(vis.map(l => l.dataset.situacao))].filter(x => x && x !== "-"));
+  atualizarFiltro(filtroEmpresa,  [...new Set(vis.map(l => l.dataset.empresa))]);
 }
 
 /* ============================================================
       EVENTOS FILTROS
 ============================================================ */
-[filtroSerial, filtroStatus, filtroEmpresa, filtroEvento, filtroRetorno]
+[filtroSerial, filtroStatus, filtroSituacao, filtroEmpresa, filtroEvento, filtroRetorno]
   .forEach(f => {
     f.addEventListener("input", aplicarFiltros);
     f.addEventListener("change", aplicarFiltros);
@@ -378,6 +445,7 @@ function atualizarFiltrosInteligentes() {
 btnLimpar.addEventListener("click", () => {
   filtroSerial.value = "";
   filtroStatus.value = "";
+  filtroSituacao.value = "";
   filtroEmpresa.value = "";
   filtroEvento.value = "";
   filtroRetorno.value = "";
@@ -396,18 +464,20 @@ if (statusInicial || _params.get("retorno")) aplicarFiltros();
 ============================================================ */
 btnExportar.addEventListener("click", () => {
   const vis = linhas.filter(l => l.style.display !== "none");
-  if (vis.length === 0) return alert("Nenhuma máquina filtrada.");
+  if (vis.length === 0) return showToast("Nenhuma máquina filtrada.", "err");
 
+  // usa dataset (não índice de coluna) → robusto a reordenação de colunas
   const dados = vis.map(l => ({
-    Modelo:     l.children[1].innerText.trim(),
-    Serial:     l.children[2].innerText.trim(),
-    Status:     l.querySelector("select").value,
-    Empresa:    l.children[4].innerText.trim(),
-    Evento:     l.dataset.evento,
-    NomeEvento: l.dataset.nomeevento,
-    Produtora:  l.dataset.produtora,
-    Comercial:  l.dataset.comercial,
-    Retorno:    l.children[6].innerText.trim()
+    Modelo:         l.children[1].innerText.trim(),
+    Serial:         l.children[2].innerText.trim(),
+    Status:         l.querySelector("select").value,
+    "Situação":     l.dataset.situacao || "-",
+    Empresa:        l.dataset.empresa,
+    "ID Evento":    l.dataset.evento || "-",
+    "Nome Evento":  l.dataset.nomeevento,
+    Produtora:      l.dataset.produtora,
+    Comercial:      l.dataset.comercial,
+    "Data Retorno": l.dataset.retorno
   }));
 
   const ws = XLSX.utils.json_to_sheet(dados);
@@ -446,10 +516,28 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
           row.dataset.status = status;
           // reflete a limpeza de evento/retorno que o backend faz ao virar Estoque/Fixo
           if (status.startsWith("Estoque")) {
-            row.children[5].textContent = "-";
-            row.children[6].textContent = "-";
+            row.children[6].textContent = "-"; // ID Evento
+            row.children[7].textContent = "-"; // Nome Evento
+            row.children[8].textContent = "-"; // Data Retorno
+            row.dataset.evento = "";
+            row.dataset.nomeevento = "-";
+            row.dataset.retorno = "-";
           } else if (status === "Fixo") {
-            row.children[6].textContent = "-";
+            row.children[8].textContent = "-"; // Data Retorno (Fixo não retorna)
+            row.dataset.retorno = "-";
+          }
+          // recalcula a Situação (col 4) + dataset
+          const novaSit = situacaoClient(status, row.dataset.retorno);
+          row.dataset.situacao = novaSit;
+          const celSit = row.children[4];
+          celSit.innerHTML = "";
+          if (novaSit) {
+            const span = document.createElement("span");
+            span.className = "pill-sit " + (SIT_CLS[novaSit] || "");
+            span.textContent = novaSit;
+            celSit.appendChild(span);
+          } else {
+            celSit.textContent = "-";
           }
           aplicarFiltros(); // a linha pode sair do filtro atual
         }

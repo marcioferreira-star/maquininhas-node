@@ -1,6 +1,7 @@
 // src/routes/maquinas.js
 import express from "express";
 import { getMaquinas } from "../db.js";
+import { situacaoDeMaquina } from "../utils/datas.js";
 
 const router = express.Router();
 
@@ -13,7 +14,11 @@ router.get("/", async (req, res) => {
   try {
     const maquinas = await getMaquinas();
 
-    const listaSegura = Array.isArray(maquinas) ? maquinas : [];
+    const listaSegura = (Array.isArray(maquinas) ? maquinas : []).map((m) => ({
+      ...m,
+      // situação de prazo derivada do status atual (calc. server-side = fuso BRT correto)
+      situacao: situacaoDeMaquina(m.status, m.dataRetorno)
+    }));
 
     console.log(
       `✅ /maquinas carregado: ${listaSegura.length} máquinas (em ${Date.now() - inicio}ms)`

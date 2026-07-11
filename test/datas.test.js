@@ -8,6 +8,7 @@ import {
   startOfDayLocal,
   diffDiasDeHoje,
   situacaoPrazo,
+  situacaoDeMaquina,
   serialSheetParaBR,
   hojeBR
 } from "../src/utils/datas.js";
@@ -63,6 +64,18 @@ test("situacaoPrazo — atrasado / vence hoje / no prazo", () => {
   assert.equal(situacaoPrazo("Envio SP", toBR(ontem)), "Atrasado");
   assert.equal(situacaoPrazo("Envio SP", toBR(hoje)), "Vence hoje");
   assert.equal(situacaoPrazo("Envio SP", toBR(amanha)), "Dentro do prazo");
+});
+
+test("situacaoDeMaquina — derivada do STATUS atual (aba Máquinas)", () => {
+  // Em Uso → depende da data de retorno
+  assert.equal(situacaoDeMaquina("Em Uso SP", toBR(ontem)), "Atrasado");
+  assert.equal(situacaoDeMaquina("Em Uso RJ", toBR(hoje)), "Vence hoje");
+  assert.equal(situacaoDeMaquina("Em Uso URA", toBR(amanha)), "Dentro do prazo");
+  assert.equal(situacaoDeMaquina("Em Uso SP", "-"), "Sem data");
+  // Fixo / Estoque / outros
+  assert.equal(situacaoDeMaquina("Fixo", "-"), "Fixo");
+  assert.equal(situacaoDeMaquina("Estoque SP", "-"), "Disponível");
+  assert.equal(situacaoDeMaquina("Perdida", "-"), "");
 });
 
 test("serialSheetParaBR — número de série vira data; texto fica igual", () => {
