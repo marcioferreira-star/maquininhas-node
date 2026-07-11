@@ -248,10 +248,10 @@
                 <td><%= h.saida || "-" %></td>
                 <td><%= h.retorno || "-" %></td>
                 <td><%= h.usuario || "-" %></td>
-                <td><%= h.nome_evento || "-" %></td>
+                <td title="<%= (h.nome_evento && h.nome_evento !== '-') ? h.nome_evento : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.nome_evento || "-" %></td>
                 <td><%= h.produtora || "-" %></td>
                 <td><%= h.comercial || "-" %></td>
-                <td><%= h.obs || "-" %></td>
+                <td title="<%= (h.obs && h.obs !== '-') ? h.obs : '' %>" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><%= h.obs || "-" %></td>
               </tr>
             <% }) %>
           <% } %>

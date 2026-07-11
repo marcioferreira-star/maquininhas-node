@@ -544,9 +544,11 @@ a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border
 .kpi__ic svg { width: 18px; height: 18px; }
 .kpi__value { font-size: var(--fs-3xl); font-weight: 700; line-height: 1; letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums; }
 .kpi--accent .kpi__ic { background: var(--brand-soft); color: var(--brand); }
-.kpi__sub { display: flex; gap: var(--space-5); margin-top: var(--space-1); }
-.kpi__sub b { display: block; font-size: var(--fs-lg); font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-.kpi__sub span { font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi__foot { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: var(--fs-sm); color: var(--muted); }
+.kpi__sub { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.kpi__sub div { display: inline-flex; align-items: center; gap: 5px; background: var(--surface-2); border-radius: var(--radius-full); padding: 2px 9px; font-size: var(--fs-xs); }
+.kpi__sub div span { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.kpi__sub div b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* =============================================== */
 /* === RESPONSIVIDADE === */
