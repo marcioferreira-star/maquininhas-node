@@ -1,53 +1,41 @@
-// db.js
-import {
-  getSheetData,
-  appendToSheet
-} from "./sheet.js";
-import { startOfDayLocal, serialSheetParaBR } from "./utils/datas.js";
-import { resumoDeMaquinas, montarHistorico } from "./utils/dominio.js";
+// db.js — camada de dados: CACHE central + seleção do backend de LEITURA.
+// As leituras de lista/histórico são servidas por repo/sheets.js OU repo/neon.js
+// conforme READ_BACKEND (default "sheets" = comportamento idêntico ao original).
+// O caminho de ESCRITA (getMaquinasIndex resolve linha p/ o batchUpdate;
+// getEventoInfo valida o envio) fica SEMPRE em sheets — o espelho é até 15min stale.
+import { appendToSheet } from "./sheet.js";
+import { startOfDayLocal } from "./utils/datas.js";
+import { resumoDeMaquinas } from "./utils/dominio.js";
+import * as sheets from "./repo/sheets.js";
+import * as neon from "./repo/neon.js";
 
-const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
 const EVENTOS_SHEET = "DADOS EVENTOS";
 
+/** Backend de LEITURA (lista/histórico) selecionado por env. Rollback = flip + redeploy. */
+function readBackend() {
+  return process.env.READ_BACKEND === "neon" ? neon : sheets;
+}
+
 /* ============================================================
-   🔵 CACHE (PERFORMANCE)
-   - Evita reler a planilha em sequência (principal causa de lentidão)
+   🔵 CACHE (PERFORMANCE) — evita reler a fonte em sequência
 ============================================================ */
 const CACHE = {
-  // Máquinas (A2:O2000)
-  maquinas: {
-    ts: 0,
-    ttlMs: 15_000, // 15s
-    data: []
-  },
-
-  // Index serial -> máquina (derivado de maquinas)
-  maquinasIndex: {
-    ts: 0,
-    ttlMs: 15_000, // 15s (mesmo do cache de maquinas)
-    data: new Map()
-  },
-
-  // EventoInfo por id_evento
-  eventoInfo: {
-    ttlMs: 5 * 60_000, // 5min
-    map: new Map() // id -> { ts, data }
-  }
+  maquinas: { ts: 0, ttlMs: 15_000, data: [] },
+  maquinasIndex: { ts: 0, ttlMs: 15_000, data: new Map() },
+  eventoInfo: { ttlMs: 5 * 60_000, map: new Map() }
 };
 
 function now() {
   return Date.now();
 }
-
 function isFresh(ts, ttlMs) {
   return ts && (now() - ts) < ttlMs;
 }
 
 /* ============================================================
    🔵 INVALIDAR CACHE DE MÁQUINAS
-   - Chamar APÓS qualquer escrita na CONTROLE (envio/retorno/status),
-     senão o dashboard/lista servem o snapshot pré-escrita por até 15s.
+   - Chamar APÓS qualquer escrita na CONTROLE (envio/retorno/status).
 ============================================================ */
 export function invalidarCacheMaquinas() {
   CACHE.maquinas.ts = 0;
@@ -57,7 +45,7 @@ export function invalidarCacheMaquinas() {
 }
 
 /* ============================================================
-   🔵 CARREGAR LISTA DE MÁQUINAS (A → O)  (COM CACHE)
+   🔵 LISTA DE MÁQUINAS (COM CACHE) — backend selecionável
 ============================================================ */
 export async function getMaquinas(options = {}) {
   const force = !!options.force;
@@ -66,44 +54,12 @@ export async function getMaquinas(options = {}) {
     return CACHE.maquinas.data;
   }
 
-  // range ABERTO (A2:P) — inclui Operadora(D), Info Chip(E), Processando(H) e
-  // OBSERVAÇÃO(P), antes ignoradas. O Sheets limita pelo fim dos dados.
-  // getSheetData PROPAGA erro (throw) → não cacheamos [] disfarçando falha de API.
-  const range = `'${SHEET_NAME}'!A2:P`;
-  const dados = await getSheetData(range);
-
-  if (!dados || dados.length === 0) {
-    CACHE.maquinas.ts = now();
-    CACHE.maquinas.data = [];
-    // também invalida index
-    CACHE.maquinasIndex.ts = 0;
-    CACHE.maquinasIndex.data = new Map();
-    return [];
-  }
-
-  const maquinas = dados.map((linha, i) => ({
-    linha: i + 2,
-    modelo: linha[1] || "-",
-    serial: linha[2] || "-",
-    operadora: linha[3] || "-",     // col D
-    infoChip: linha[4] || "-",      // col E
-    status: linha[6] || "-",
-    processando: linha[7] || "-",   // col H
-    empresa: linha[8] || "-",
-    idEvento: linha[9] || "-",
-    nomeEvento: linha[10] || "-",
-    produtora: linha[11] || "-",
-    comercial: linha[12] || "-",
-    // ✅ converte número-de-série do Sheets de volta para dd/mm/aaaa
-    dataSaida: serialSheetParaBR(linha[13]) || "-",
-    dataRetorno: serialSheetParaBR(linha[14]) || "-",
-    observacao: linha[15] || "-"    // col P
-  }));
+  // fetch PROPAGA erro (throw) → não cacheamos [] disfarçando falha de API.
+  const maquinas = await readBackend().fetchMaquinas();
 
   CACHE.maquinas.ts = now();
   CACHE.maquinas.data = maquinas;
-
-  // invalida o index para ser reconstruído com esse snapshot
+  // invalida o index para ser reconstruído
   CACHE.maquinasIndex.ts = 0;
   CACHE.maquinasIndex.data = new Map();
 
@@ -111,7 +67,8 @@ export async function getMaquinas(options = {}) {
 }
 
 /* ============================================================
-   🔵 MAPA serial → { linha, ... } (COM CACHE)
+   🔵 MAPA serial → máquina (COM CACHE) — SEMPRE sheets (caminho de escrita)
+   O api.js resolve a LINHA pelo serial e precisa do dado FRESCO da planilha.
 ============================================================ */
 export async function getMaquinasIndex(options = {}) {
   const force = !!options.force;
@@ -120,12 +77,10 @@ export async function getMaquinasIndex(options = {}) {
     return CACHE.maquinasIndex.data;
   }
 
-  const arr = await getMaquinas({ force }); // propaga erro de leitura
+  const arr = await sheets.fetchMaquinas(); // propaga erro de leitura
 
   const map = new Map();
-  // seriais que aparecem 2×+ na CONTROLE são ambíguos: map.set sobrescreveria
-  // silenciosamente e a resolução "sempre pelo serial" gravaria na linha errada.
-  // Guardamos os duplicados p/ a rota recusar a operação (ver api.js).
+  // seriais que aparecem 2×+ na CONTROLE são ambíguos: guardamos p/ a rota recusar.
   const duplicados = new Set();
   for (const m of arr) {
     const serial = String(m.serial || "").trim();
@@ -143,7 +98,7 @@ export async function getMaquinasIndex(options = {}) {
 }
 
 /* ============================================================
-   🔵 RESUMO DASHBOARD
+   🔵 RESUMO DASHBOARD — segue o backend de leitura (via getMaquinas)
 ============================================================ */
 export async function getResumo() {
   const maquinas = await getMaquinas(); // propaga erro de leitura
@@ -152,44 +107,29 @@ export async function getResumo() {
 }
 
 /* ============================================================
-   🔵 BUSCAR DADOS DO EVENTO (COM CACHE)
+   🔵 BUSCAR DADOS DO EVENTO (COM CACHE) — SEMPRE sheets
+   Validação do envio: um evento recém-cadastrado não estaria no espelho por até
+   15min → 404 falso. Fica no Sheets enquanto a escrita for na planilha.
 ============================================================ */
 export async function getEventoInfo(idEvento) {
   const alvo = String(idEvento || "").trim();
   if (!alvo) return null;
 
-  // cache hit
   const cached = CACHE.eventoInfo.map.get(alvo);
   if (cached && isFresh(cached.ts, CACHE.eventoInfo.ttlMs)) {
     return cached.data;
   }
 
-  // ⚠️ getSheetData PROPAGA erro (throw). NÃO cacheamos null nesse caso —
-  // senão uma falha transitória da API vira "ID não existe" grudado por 5 min.
-  // Só cacheamos null quando a leitura funcionou e o evento realmente não está lá.
-  const linhas = await getSheetData(`'${EVENTOS_SHEET}'!A2:D`);
-  const row = linhas.find((r) => String(r[0]).trim() === alvo);
-
-  if (!row) {
-    CACHE.eventoInfo.map.set(alvo, { ts: now(), data: null });
-    return null;
-  }
-
-  const data = {
-    id_evento: row[0],
-    nome_evento: row[1] || "-",
-    produtora: row[2] || "-",
-    comercial: row[3] || "-"
-  };
-
+  // fetchEventoInfo PROPAGA erro (getSheetData throw) → NÃO cacheamos null nesse
+  // caso (senão falha transitória vira "ID não existe" grudado 5min). Só cacheia
+  // null quando a leitura funcionou e o evento realmente não está lá.
+  const data = await sheets.fetchEventoInfo(alvo);
   CACHE.eventoInfo.map.set(alvo, { ts: now(), data });
   return data;
 }
 
 /* ============================================================
-   🔵 CADASTRAR EVENTO (aba DADOS EVENTOS)
-   - Append de 1 linha (ID, Nome, Produtora, Comercial).
-   - Invalida o cache daquele ID p/ o lookup seguinte já enxergar.
+   🔵 CADASTRAR EVENTO (aba DADOS EVENTOS) — escrita na planilha
 ============================================================ */
 export async function cadastrarEvento({ id, nome, produtora, comercial }) {
   const alvo = String(id || "").trim();
@@ -207,12 +147,11 @@ export async function cadastrarEvento({ id, nome, produtora, comercial }) {
 }
 
 /* ============================================================
-   🔵 REGISTRAR MOVIMENTO (HISTÓRICO)
+   🔵 REGISTRAR MOVIMENTO (HISTÓRICO) — escrita na planilha
    - Aceita 1 linha (obj) ou várias linhas (array de arrays)
 ============================================================ */
 export async function registrarMovimento(info) {
   try {
-    // compat anterior (1 linha só)
     if (!Array.isArray(info)) {
       if (!info.serial) return false;
       const row = [
@@ -230,8 +169,6 @@ export async function registrarMovimento(info) {
       ];
       return await appendToSheet(`'${HISTORICO_SHEET}'!A:K`, row);
     }
-
-    // novo: várias linhas de uma vez (já no formato A..K)
     return await appendToSheet(`'${HISTORICO_SHEET}'!A:K`, info);
   } catch (err) {
     console.error("❌ registrarMovimento erro:", err);
@@ -240,13 +177,8 @@ export async function registrarMovimento(info) {
 }
 
 /* ============================================================
-   🔵 HISTÓRICO COMPLETO
-   - Sem cache (pra refletir o “último” imediatamente no front)
-   - situacao: prazo calculado AO VIVO (ver utils/datas.js)
+   🔵 HISTÓRICO COMPLETO (sem cache) — backend selecionável
 ============================================================ */
 export async function getHistorico() {
-  // range ABERTO (A2:K) — HISTORICO é append-only e cresce sempre; teto fixo truncaria.
-  // getSheetData PROPAGA erro; a derivação (situação/Devolvida) é pura e testável.
-  const dados = await getSheetData(`'${HISTORICO_SHEET}'!A2:K`);
-  return montarHistorico(dados);
+  return readBackend().fetchHistorico();
 }

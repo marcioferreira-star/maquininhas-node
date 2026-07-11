@@ -1,0 +1,10 @@
+import "dotenv/config";
+import * as db from "../../src/db.js";
+console.log("READ_BACKEND:", process.env.READ_BACKEND || "(default sheets)");
+console.log("getMaquinas:", (await db.getMaquinas()).length);
+const idx = await db.getMaquinasIndex();
+console.log("getMaquinasIndex:", idx.size, "dup:", idx.duplicados.size);
+console.log("getResumo:", JSON.stringify(await db.getResumo()));
+console.log("getHistorico:", (await db.getHistorico()).length);
+console.log("getEventoInfo(93042):", JSON.stringify(await db.getEventoInfo("93042")));
+process.exit(0);
