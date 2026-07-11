@@ -284,6 +284,14 @@ const btnLimpar     = document.getElementById("btnLimpar");
 const btnExportar   = document.getElementById("btnExportar");
 const contador      = document.getElementById("contador");
 
+/* "hoje" em BRT injetado pelo SERVIDOR (fuso de Brasília) — não usar new Date()
+   do navegador, cujo relógio/fuso pode divergir do BRT. */
+const HOJE_BRT = "<%= typeof hojeBRT !== 'undefined' ? hojeBRT : '' %>"; // dd/mm/aaaa
+function hojeBRTMid() {
+  const [d, m, a] = HOJE_BRT.split("/").map(Number);
+  return (d && m && a) ? new Date(a, m - 1, d) : new Date();
+}
+
 /* ============================================================
       SITUAÇÃO (client) — usado no update in-place após Salvar.
       Espelha src/utils/datas.js:situacaoDeMaquina (a 1ª renderização
@@ -304,8 +312,7 @@ function situacaoClient(status, retornoBR) {
     const [dd, mm, yy] = String(retornoBR).split("/");
     const dt = new Date(Number(yy), Number(mm) - 1, Number(dd));
     if (isNaN(dt.getTime())) return "Sem data";
-    const h = new Date();
-    const hoje = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+    const hoje = hojeBRTMid();
     const diff = Math.round((dt - hoje) / 86400000);
     if (diff < 0) return "Atrasado";
     if (diff === 0) return "Vence hoje";
@@ -344,7 +351,7 @@ function aplicarFiltros() {
   const ev  = filtroEvento.value;
   const ret = filtroRetorno.value;
 
-  const hoje = new Date();
+  const hoje = hojeBRTMid();
 
   linhas.forEach(row => {
     let mostrar = true;
@@ -403,7 +410,7 @@ function aplicarFiltros() {
 
         if (ret === "semana" && !(diff >= 0 && diff <= 7)) mostrar = false;
 
-        if (ret === "mes" && dt.getMonth() !== hoje.getMonth())
+        if (ret === "mes" && (dt.getMonth() !== hoje.getMonth() || dt.getFullYear() !== hoje.getFullYear()))
           mostrar = false;
       }
     }

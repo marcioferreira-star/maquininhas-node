@@ -519,15 +519,13 @@ busca.addEventListener("input", () => renderLista(busca.value));
 renderLista("");
 
 /* ===============================
-   DATA DE ENVIO DEFAULT = HOJE (horário local do cliente, nunca ISO/UTC)
+   DATA DE ENVIO DEFAULT = HOJE em BRT (injetado pelo servidor — não usar o
+   relógio do navegador, cujo fuso pode divergir do BRT)
 =============================== */
 (function () {
-  const d = new Date();
-  const iso = d.getFullYear() + "-" +
-    String(d.getMonth() + 1).padStart(2, "0") + "-" +
-    String(d.getDate()).padStart(2, "0");
+  const iso = "<%= typeof hojeISO !== 'undefined' ? hojeISO : '' %>"; // aaaa-mm-dd BRT
   const dtSaidaEl = document.getElementById("dtSaida");
-  if (dtSaidaEl && !dtSaidaEl.value) dtSaidaEl.value = iso;
+  if (dtSaidaEl && !dtSaidaEl.value && iso) dtSaidaEl.value = iso;
 })();
 
 /* ===============================

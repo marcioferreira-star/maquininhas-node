@@ -1,8 +1,16 @@
 // src/routes/envio.js
 import express from "express";
 import { getMaquinas } from "../db.js";
+import { hojeBR } from "../utils/datas.js";
 
 const router = express.Router();
+
+// "hoje" em BRT no formato aaaa-mm-dd (para o default do <input type=date>,
+// sem depender do relógio/fuso do navegador)
+function hojeISO() {
+  const [d, m, a] = hojeBR().split("/");
+  return `${a}-${m}-${d}`;
+}
 
 /* ============================================================
    GET – Página Envio / Retorno
@@ -18,7 +26,8 @@ router.get("/", async (req, res) => {
 
     res.render("envio", {
       page: "envio",
-      maquinas: listaSegura
+      maquinas: listaSegura,
+      hojeISO: hojeISO()
     });
 
   } catch (err) {
@@ -27,7 +36,8 @@ router.get("/", async (req, res) => {
 
     res.render("envio", {
       page: "envio",
-      maquinas: []
+      maquinas: [],
+      hojeISO: hojeISO()
     });
   }
 });

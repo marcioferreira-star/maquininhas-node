@@ -10,7 +10,7 @@ import {
 } from "../db.js";
 
 import { batchUpdateValues } from "../sheet.js";
-import { hojeBR, parseBRDate } from "../utils/datas.js";
+import { hojeBR, parseBRDate, dataISOValida } from "../utils/datas.js";
 import {
   marcarPerdida,
   registrarTroca,
@@ -116,17 +116,22 @@ router.post("/registrar-envio", async (req, res) => {
       if (!dt_saida) {
         return res.status(400).json({ ok: false, msg: "Data de saída obrigatória." });
       }
-
-      // retorno só é obrigatório quando NÃO for Envio Fixo
-      if (!isEnvioFixo && !dt_retorno) {
-        return res.status(400).json({ ok: false, msg: "Data de retorno obrigatória." });
+      if (!dataISOValida(dt_saida)) {
+        return res.status(400).json({ ok: false, msg: "Data de saída inválida." });
       }
 
-      // valida data: retorno não pode ser anterior à saída
+      // retorno só é obrigatório (e validado) quando NÃO for Envio Fixo
       if (!isEnvioFixo) {
+        if (!dt_retorno) {
+          return res.status(400).json({ ok: false, msg: "Data de retorno obrigatória." });
+        }
+        if (!dataISOValida(dt_retorno)) {
+          return res.status(400).json({ ok: false, msg: "Data de retorno inválida." });
+        }
+        // retorno não pode ser anterior à saída (agora sempre checado — datas válidas)
         const tSaida = parseBRDateToTime(toBR(dt_saida));
         const tRetorno = parseBRDateToTime(toBR(dt_retorno));
-        if (tSaida && tRetorno && tRetorno < tSaida) {
+        if (tRetorno < tSaida) {
           return res.status(400).json({
             ok: false,
             msg: "A data de retorno não pode ser anterior à data de saída."
@@ -464,6 +469,14 @@ router.post("/atualizar-status", async (req, res) => {
     if (!serial?.trim()) return res.status(400).json({ ok: false, msg: "Serial obrigatório." });
     if (!status?.trim()) return res.status(400).json({ ok: false, msg: "Status obrigatório." });
 
+    // allow-list: só os status canônicos entram na planilha (defense-in-depth;
+    // o front já limita, mas um POST forjado não deve gravar lixo na col G)
+    const STATUS_VALIDOS = ["Estoque SP", "Estoque RJ", "Estoque URA", "Em Uso SP", "Em Uso RJ", "Em Uso URA", "Fixo"];
+    const statusLimpo = String(status).trim();
+    if (!STATUS_VALIDOS.includes(statusLimpo)) {
+      return res.status(400).json({ ok: false, msg: "Status inválido." });
+    }
+
     const idx = await getMaquinasIndex({ force: true }); // ✅ linha sempre atualizada
     const serialTrim = String(serial).trim();
 
@@ -478,15 +491,15 @@ router.post("/atualizar-status", async (req, res) => {
     const updates = [];
 
     // Atualiza STATUS (coluna G)
-    updates.push({ range: `'${SHEET_NAME}'!G${m.linha}`, value: status });
+    updates.push({ range: `'${SHEET_NAME}'!G${m.linha}`, value: statusLimpo });
 
     // Se virou FIXO → limpa retorno (coluna O) pra não ficar data antiga
-    if (status === "Fixo") {
+    if (statusLimpo === "Fixo") {
       updates.push({ range: `'${SHEET_NAME}'!O${m.linha}`, value: "-" });
     }
 
     // Se virou ESTOQUE → limpa evento e retorno (mantém planilha coerente)
-    if (status.startsWith("Estoque")) {
+    if (statusLimpo.startsWith("Estoque")) {
       updates.push(
         { range: `'${SHEET_NAME}'!J${m.linha}`, value: "-" },
         { range: `'${SHEET_NAME}'!K${m.linha}`, value: "-" },

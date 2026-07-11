@@ -114,6 +114,18 @@ export function situacaoPrazo(acao, retornoBR) {
 }
 
 /**
+ * Valida se a string é uma data de calendário REAL em "aaaa-mm-dd" (o formato
+ * do <input type=date>). Rejeita não-data e datas fora de faixa (ex.: "2026-13-45"),
+ * que o parseBRDate normalizaria em silêncio. Blindagem de backend.
+ */
+export function dataISOValida(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s || ""))) return false;
+  const [y, m, d] = String(s).split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
+
+/**
  * Situação de prazo de uma MÁQUINA, derivada do STATUS ATUAL (não de uma ação).
  * Usada na aba "Máquinas Cadastradas" (a coluna que saiu do Histórico).
  *  - Em Uso  → compara a data de retorno com hoje (Atrasado / Vence hoje / Dentro do prazo);

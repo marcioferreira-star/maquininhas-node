@@ -1,7 +1,7 @@
 // src/routes/maquinas.js
 import express from "express";
 import { getMaquinas } from "../db.js";
-import { situacaoDeMaquina } from "../utils/datas.js";
+import { situacaoDeMaquina, hojeBR } from "../utils/datas.js";
 
 const router = express.Router();
 
@@ -27,7 +27,8 @@ router.get("/", async (req, res) => {
     res.render("maquinas", {
       page: "maquinas",
       erro: false,
-      maquinas: listaSegura
+      maquinas: listaSegura,
+      hojeBRT: hojeBR() // "hoje" em BRT p/ o client não usar o relógio do navegador
     });
 
   } catch (err) {
@@ -37,7 +38,8 @@ router.get("/", async (req, res) => {
     res.render("maquinas", {
       page: "maquinas",
       erro: true,
-      maquinas: []
+      maquinas: [],
+      hojeBRT: hojeBR()
     });
   }
 });

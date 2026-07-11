@@ -118,20 +118,30 @@ export async function registrarTroca({ serialDefeito, problema, local, serialNov
   const d = String(serialDefeito || "").trim();
   if (!d) throw new ErroExcecao("Informe o serial da máquina com defeito.");
 
+  // 1) marca a defeituosa como "Defeito" na CONTROLE (sai das contagens), se existir.
+  //    Feito ANTES do append e com verificação — se falhar, aborta sem gravar em TROCAS.
+  const idx = await getMaquinasIndex({ force: true });
+  const m = idx.get(d);
+  const podeMarcar = m && !(idx.duplicados && idx.duplicados.has(d));
+  if (podeMarcar) {
+    const okStatus = await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: "Defeito" }]);
+    if (!okStatus) throw new ErroExcecao("Falha ao marcar a máquina como Defeito na CONTROLE.");
+    invalidarCacheMaquinas();
+  }
+
+  // 2) append em TROCAS; se falhar, faz rollback do status (simetria com marcarPerdida)
   const ok = await appendToSheet(`'${TROCAS}'!A:D`, [
     d,
     String(problema || "-"),
     String(local || "-"),
     String(serialNova || "-")
   ]);
-  if (!ok) throw new ErroExcecao("Falha ao gravar em TROCAS.");
-
-  // marca a defeituosa como "Defeito" na CONTROLE (sai das contagens), se existir
-  const idx = await getMaquinasIndex({ force: true });
-  const m = idx.get(d);
-  if (m && !(idx.duplicados && idx.duplicados.has(d))) {
-    await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: "Defeito" }]);
-    invalidarCacheMaquinas();
+  if (!ok) {
+    if (podeMarcar) {
+      await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: m.status || "-" }]);
+      invalidarCacheMaquinas();
+    }
+    throw new ErroExcecao("Falha ao gravar em TROCAS — o status foi revertido.");
   }
   return true;
 }
@@ -144,15 +154,25 @@ export async function enviarParaLocalizar({ serial, referencia }) {
   const idx = await getMaquinasIndex({ force: true });
   const m = idx.get(s);
   const modelo = m ? (m.modelo || "-") : "-";
+  const podeMarcar = m && !(idx.duplicados && idx.duplicados.has(s));
 
-  // LOCALIZAR tem o mesmo layout da CONTROLE; a referência vai na col Nome Evento (K)
+  // 1) marca "Localizar" na CONTROLE (se existir) ANTES do append, com verificação
+  if (podeMarcar) {
+    const okStatus = await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: "Localizar" }]);
+    if (!okStatus) throw new ErroExcecao("Falha ao marcar a máquina como Localizar na CONTROLE.");
+    invalidarCacheMaquinas();
+  }
+
+  // 2) LOCALIZAR tem o mesmo layout da CONTROLE; a referência vai na col Nome Evento (K).
+  //    Se o append falhar, rollback do status.
   const row = ["", modelo, s, "", "", "", "", "", "", "", String(referencia || "-")];
   const ok = await appendToSheet(`'${LOCALIZAR}'!A:K`, row);
-  if (!ok) throw new ErroExcecao("Falha ao gravar em LOCALIZAR.");
-
-  if (m && !(idx.duplicados && idx.duplicados.has(s))) {
-    await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: "Localizar" }]);
-    invalidarCacheMaquinas();
+  if (!ok) {
+    if (podeMarcar) {
+      await batchUpdateValues([{ range: `'${CONTROLE}'!G${m.linha}`, value: m.status || "-" }]);
+      invalidarCacheMaquinas();
+    }
+    throw new ErroExcecao("Falha ao gravar em LOCALIZAR — o status foi revertido.");
   }
   return true;
 }

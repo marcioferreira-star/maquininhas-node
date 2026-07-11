@@ -9,6 +9,7 @@ import {
   diffDiasDeHoje,
   situacaoPrazo,
   situacaoDeMaquina,
+  dataISOValida,
   serialSheetParaBR,
   hojeBR
 } from "../src/utils/datas.js";
@@ -64,6 +65,21 @@ test("situacaoPrazo — atrasado / vence hoje / no prazo", () => {
   assert.equal(situacaoPrazo("Envio SP", toBR(ontem)), "Atrasado");
   assert.equal(situacaoPrazo("Envio SP", toBR(hoje)), "Vence hoje");
   assert.equal(situacaoPrazo("Envio SP", toBR(amanha)), "Dentro do prazo");
+});
+
+test("dataISOValida — só aceita data de calendário real em aaaa-mm-dd", () => {
+  assert.equal(dataISOValida("2026-07-10"), true);
+  assert.equal(dataISOValida("2026-02-28"), true);
+  // fora de faixa / inexistente → false (parseBRDate normalizaria em silêncio)
+  assert.equal(dataISOValida("2026-13-45"), false);
+  assert.equal(dataISOValida("2026-02-30"), false); // 30 de fev não existe
+  assert.equal(dataISOValida("2026-00-10"), false);
+  // formato errado / vazio → false
+  assert.equal(dataISOValida("10/07/2026"), false);
+  assert.equal(dataISOValida("2026-7-10"), false); // sem zero à esquerda
+  assert.equal(dataISOValida("-"), false);
+  assert.equal(dataISOValida(""), false);
+  assert.equal(dataISOValida(null), false);
 });
 
 test("situacaoDeMaquina — derivada do STATUS atual (aba Máquinas)", () => {
