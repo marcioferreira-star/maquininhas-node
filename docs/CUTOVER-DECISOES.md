@@ -6,6 +6,23 @@ Atalho: se você concordar com todas as recomendações, é só responder **"ace
 
 ---
 
+## ✅ DECIDIDO (11/07) — Marcio aceitou as recomendações
+
+| # | Decisão | Ação decorrente / bloqueio |
+|---|---|---|
+| 1 | Clonar o GAS bound (read-only) | **PENDENTE** — preciso do `scriptId` do Apps Script bound (ou você adicioná-lo à conta clasp). Sem ele não clono. |
+| 2 | Planilha = **espelho vivo permanente** | Fase 5 (aposentar) **não será feita**. Nada a executar. |
+| 3 | 5 seriais | **PBA1233870901, PBA1245G74251, PBA1246T74847, PBA1245G74140 → "Perdida"**; **PBA123B373001 → mantém "Em Uso"**. AÇÃO: mudar a col G (status) desses 4 na CONTROLE (⚠️ ver nota abaixo). |
+| 4 | Curadoria | Agendar **antes da Fase 4**. Sob demanda — eu regenero os TSVs quando você sentar nisso. |
+| 5 | App = canal oficial de exceção | Já ligado (`EXCECOES_ATIVAS=1`). Proteger a CONTROLE só na Fase 4. |
+| 6 | Defasagem de 15 min | **Aceita** (libera a Fase 2). |
+| 7 | Janela ≤1h na Fase 4 | **Aceita** — agendar em horário sem evento. |
+| 8 | Neon: branch de segurança antes da Fase 4 + autosuspend | **Aceito**. Crio o branch na véspera da Fase 4. |
+
+**⚠️ Nota sobre o item 3 (correção dos 4 seriais):** os 4 já estão em PERDIDAS, então a correção é só mudar o **status na CONTROLE p/ "Perdida"** (não usar o fluxo do app, que duplicaria em PERDIDAS). O `sheets-mcp` usa a SA `meep-coletor-sa`, que provavelmente **não tem escrita** nessa planilha (a app usa `maquinas-dashboard@`). Então: **você edita a col G dos 4 na planilha** (30s), ou me confirma que quer que eu tente pela SA da app. Correção **na planilha** (o sync propaga; corrigir no Neon é desfeito).
+
+---
+
 ## 1. Clonar o GAS bound (`pintarProximosEnvios`) via `clasp` — só leitura
 - **Por quê:** o script bound da planilha é caixa-preta; escrita via API **não dispara `onEdit`**. Antes de mexer na escrita precisamos saber COMO ele é disparado (senão o realce da planilha morre no cutover).
 - **Opções:** (a) clonar read-only (sem versionar, sem deploy) só p/ ler o gatilho · (b) não clonar (arriscar no escuro).
