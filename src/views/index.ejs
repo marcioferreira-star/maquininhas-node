@@ -65,6 +65,17 @@
     @media (max-width: 480px){
       .kpi-value{ font-size: 28px; }
     }
+    /* Sincronização manual (planilha → espelho Neon) */
+    .sync-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 4px 0 24px;
+    }
+    .sync-status { color: var(--muted); font-size: 13px; }
+    #btnSync[disabled] { opacity: 0.6; cursor: progress; }
+    #btnSync svg { vertical-align: -3px; }
   </style>
 
   <h1>Dashboard</h1>
@@ -143,6 +154,15 @@
     </a>
   </div>
 
+  <!-- Sincronização manual: planilha → espelho Neon (qualquer operador logado) -->
+  <div class="sync-box">
+    <button type="button" class="btn btn-secondary" id="btnSync">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+      Sincronizar agora
+    </button>
+    <span id="syncStatus" class="sync-status">Última sincronização: carregando…</span>
+  </div>
+
   <script>
     const resumo = <%- JSON.stringify(resumo || {}) %>;
 
@@ -169,6 +189,66 @@
     animateCount(document.getElementById("kpiUso"), resumo.emUso || 0);
     animateCount(document.getElementById("kpiFixas"), resumo.fixas || 0);
     animateCount(document.getElementById("kpiAtras"), resumo.atrasadas || 0);
+
+    /* ===== Sincronização manual (planilha → espelho Neon) ===== */
+    (function syncUI() {
+      const btn = document.getElementById("btnSync");
+      const stat = document.getElementById("syncStatus");
+      if (!btn || !stat) return;
+
+      // timestamp completo (ISO com fuso) → BRT. new Date(ISO-completo) é seguro
+      // (o bug UTC só vale p/ strings de data pura "aaaa-mm-dd").
+      function fmtBRT(iso) {
+        if (!iso) return "—";
+        try {
+          return new Date(iso).toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"
+          });
+        } catch (e) { return "—"; }
+      }
+      function pintaStatus(u) {
+        if (!u) { stat.textContent = "Última sincronização: nunca"; return; }
+        const origem = String(u.origem || "").startsWith("manual") ? "manual" : "automática";
+        stat.textContent = u.ok
+          ? `Última sincronização: ${fmtBRT(u.executado_em)} (${origem})`
+          : `Última sincronização: ${fmtBRT(u.executado_em)} — falhou`;
+      }
+      async function carregar() {
+        try {
+          const r = await fetch("/api/sync-status");
+          const d = await r.json();
+          pintaStatus(d.ultimo);
+        } catch (e) { stat.textContent = "Última sincronização: —"; }
+      }
+      carregar();
+
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        const original = btn.innerHTML;
+        btn.textContent = "Sincronizando…";
+        try {
+          const r = await fetch("/api/sync-manual", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" }
+          });
+          const d = await r.json();
+          if (r.status === 409) {
+            showToast(d.msg || "Já há uma sincronização em andamento.", "err");
+          } else if (d.ok) {
+            showToast(`Sincronizado: ${d.maquina} máquinas em ${(d.ms / 1000).toFixed(1)}s`);
+          } else {
+            showToast(d.msg || "Falha ao sincronizar.", "err");
+          }
+        } catch (e) {
+          showToast("Erro de rede ao sincronizar.", "err");
+        } finally {
+          btn.innerHTML = original;
+          btn.disabled = false;
+          carregar();
+        }
+      });
+    })();
   </script>
 </div>
 

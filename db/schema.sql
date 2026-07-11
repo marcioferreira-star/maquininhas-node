@@ -124,6 +124,21 @@ CREATE TABLE localizacao (
 );
 
 -- ----------------------------------------------------------------------------
+-- TRILHA DO SYNC: quem/quando/quanto/resultado de cada sincronização (cron ou
+-- manual). Criada de forma idempotente em sync-neon.js (CREATE TABLE IF NOT EXISTS),
+-- então aparece automaticamente na 1ª execução — aqui só documentada.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS sync_meta (
+  id           BIGSERIAL PRIMARY KEY,
+  executado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+  origem       TEXT NOT NULL DEFAULT 'cron',  -- 'cron' | 'manual:<email>'
+  ok           BOOLEAN NOT NULL,
+  duracao_ms   INT,
+  contagens    JSONB,                          -- {maquina, evento, movimento, ...}
+  erro         TEXT
+);
+
+-- ----------------------------------------------------------------------------
 -- VIEW: situação de prazo AO VIVO (o bug de fuso morre por design — "hoje"
 -- calculado em America/Sao_Paulo dentro do SQL, não no TZ do processo).
 -- ----------------------------------------------------------------------------

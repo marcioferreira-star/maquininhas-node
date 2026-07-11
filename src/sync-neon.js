@@ -118,6 +118,22 @@ INSERT INTO localizacao (maquina_id, referencia)
 SELECT m.id, l.referencia FROM staging.localizar l JOIN maquina m ON m.serial=l.serial;
 `;
 
+// chave fixa do advisory lock de sessão (impede cron + manual, ou 2 operadores,
+// de rodar o sync ao mesmo tempo — o bulk de staging roda fora da transação).
+const SYNC_LOCK_KEY = 771020;
+
+// trilha de auditoria do sync (quem/quando/quanto/resultado). Idempotente.
+const SYNC_META_DDL = `
+CREATE TABLE IF NOT EXISTS sync_meta (
+  id BIGSERIAL PRIMARY KEY,
+  executado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
+  origem TEXT NOT NULL DEFAULT 'cron',
+  ok BOOLEAN NOT NULL,
+  duracao_ms INT,
+  contagens JSONB,
+  erro TEXT
+);`;
+
 async function bulk(client, tabela, cols, linhas) {
   const CHUNK = 300;
   for (let o = 0; o < linhas.length; o += CHUNK) {
@@ -129,8 +145,8 @@ async function bulk(client, tabela, cols, linhas) {
   }
 }
 
-/** Sync completo Planilha→Neon. Retorna resumo. */
-export async function sincronizar() {
+/** Sync completo Planilha→Neon. Retorna resumo. `origem` = "cron" | "manual:<quem>". */
+export async function sincronizar({ origem = "cron" } = {}) {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL não configurada.");
   const inicio = Date.now();
@@ -179,25 +195,65 @@ export async function sincronizar() {
   const client = new pg.Client({ connectionString: url.replace("-pooler", ""), ssl: true });
   await client.connect();
   try {
-    await client.query(STAGING_DDL);
-    await bulk(client, "staging.controle", ["origem_linha","raw","serial","modelo","operadora","info_chip","empresa","adquirente","processando","observacao","status_raw","status","local","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsControle);
-    await bulk(client, "staging.historico", ["origem_linha","raw","serial","acao","tipo","usuario","observacao","nome_evento","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsHist);
-    await bulk(client, "staging.eventos", ["origem_linha","raw","id_evento_raw","id_evento","nome","produtora_codigo","produtora_nome","comercial","motivo_revisao"], rowsEv);
-    await bulk(client, "staging.perdidas", ["origem_linha","raw","serial","status_perda","local","empresa","id_evento_raw","id_evento","nome_evento","responsavel","comercial","data_envio_raw","data_envio","observacao","motivo_revisao"], rowsPerd);
-    await bulk(client, "staging.trocas", ["origem_linha","raw","serial_defeito","problema","local","serial_nova","motivo_revisao"], rowsTr);
-    await bulk(client, "staging.localizar", ["origem_linha","raw","modelo","serial","referencia","motivo_revisao"], rowsLoc);
-    await client.query("BEGIN");
-    await client.query(PROMOCAO_SQL);
-    await client.query("COMMIT");
-    const cnt = async (t) => (await client.query(`select count(*) n from ${t}`)).rows[0].n;
-    return {
-      ok: true, ms: Date.now() - inicio,
-      maquina: await cnt("maquina"), evento: await cnt("evento"), movimento: await cnt("movimento"),
-      perda: await cnt("perda"), troca: await cnt("troca"), localizacao: await cnt("localizacao")
-    };
-  } catch (e) {
-    await client.query("ROLLBACK").catch(() => {});
-    throw e;
+    await client.query(SYNC_META_DDL); // garante a tabela de trilha (idempotente)
+
+    // trava: se já há um sync rodando, aborta sem tocar em nada (não é erro de dados)
+    const lock = await client.query("SELECT pg_try_advisory_lock($1) AS ok", [SYNC_LOCK_KEY]);
+    if (!lock.rows[0].ok) {
+      const err = new Error("Já existe uma sincronização em andamento.");
+      err.code = "SYNC_EM_ANDAMENTO";
+      throw err;
+    }
+
+    try {
+      await client.query(STAGING_DDL);
+      await bulk(client, "staging.controle", ["origem_linha","raw","serial","modelo","operadora","info_chip","empresa","adquirente","processando","observacao","status_raw","status","local","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsControle);
+      await bulk(client, "staging.historico", ["origem_linha","raw","serial","acao","tipo","usuario","observacao","nome_evento","id_evento_raw","id_evento","data_saida_raw","data_saida","data_retorno_raw","data_retorno","motivo_revisao"], rowsHist);
+      await bulk(client, "staging.eventos", ["origem_linha","raw","id_evento_raw","id_evento","nome","produtora_codigo","produtora_nome","comercial","motivo_revisao"], rowsEv);
+      await bulk(client, "staging.perdidas", ["origem_linha","raw","serial","status_perda","local","empresa","id_evento_raw","id_evento","nome_evento","responsavel","comercial","data_envio_raw","data_envio","observacao","motivo_revisao"], rowsPerd);
+      await bulk(client, "staging.trocas", ["origem_linha","raw","serial_defeito","problema","local","serial_nova","motivo_revisao"], rowsTr);
+      await bulk(client, "staging.localizar", ["origem_linha","raw","modelo","serial","referencia","motivo_revisao"], rowsLoc);
+      await client.query("BEGIN");
+      await client.query(PROMOCAO_SQL);
+      await client.query("COMMIT");
+      const cnt = async (t) => (await client.query(`select count(*) n from ${t}`)).rows[0].n;
+      const resumo = {
+        ok: true, ms: Date.now() - inicio, origem,
+        maquina: await cnt("maquina"), evento: await cnt("evento"), movimento: await cnt("movimento"),
+        perda: await cnt("perda"), troca: await cnt("troca"), localizacao: await cnt("localizacao")
+      };
+      // trilha (best-effort — não derruba o sync se falhar)
+      await client.query(
+        "INSERT INTO sync_meta (origem, ok, duracao_ms, contagens) VALUES ($1, true, $2, $3)",
+        [origem, resumo.ms, JSON.stringify({ maquina: resumo.maquina, evento: resumo.evento, movimento: resumo.movimento, perda: resumo.perda, troca: resumo.troca, localizacao: resumo.localizacao })]
+      ).catch(() => {});
+      return resumo;
+    } catch (e) {
+      await client.query("ROLLBACK").catch(() => {});
+      await client.query(
+        "INSERT INTO sync_meta (origem, ok, duracao_ms, erro) VALUES ($1, false, $2, $3)",
+        [origem, Date.now() - inicio, String(e.message || e).slice(0, 500)]
+      ).catch(() => {});
+      throw e;
+    }
+    // advisory lock é de SESSÃO → liberado automaticamente no client.end() abaixo
+  } finally {
+    await client.end();
+  }
+}
+
+/** Última execução registrada em sync_meta (ou null). Login-gated no endpoint. */
+export async function ultimoSync() {
+  const url = process.env.DATABASE_URL;
+  if (!url) return null;
+  const client = new pg.Client({ connectionString: url.replace("-pooler", ""), ssl: true });
+  await client.connect();
+  try {
+    await client.query(SYNC_META_DDL); // garante existência (1ª vez)
+    const r = await client.query(
+      "SELECT executado_em, origem, ok, duracao_ms, contagens, erro FROM sync_meta ORDER BY id DESC LIMIT 1"
+    );
+    return r.rows[0] || null;
   } finally {
     await client.end();
   }

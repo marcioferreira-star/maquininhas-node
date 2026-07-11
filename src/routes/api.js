@@ -17,6 +17,7 @@ import {
   enviarParaLocalizar,
   ErroExcecao
 } from "../excecoes.js";
+import { sincronizar, ultimoSync } from "../sync-neon.js";
 
 // flag: as ações de exceção (perda/troca/localizar) só gravam quando ligado.
 const excecoesAtivas = () => process.env.EXCECOES_ATIVAS === "1";
@@ -635,6 +636,37 @@ router.post("/localizar", async (req, res) => {
   if (!gateExcecoes(res)) return;
   const { serial, referencia } = req.body || {};
   return tratarAcaoExcecao(res, () => enviarParaLocalizar({ serial, referencia }));
+});
+
+/* ======================================================
+   SYNC MANUAL (planilha → Neon) — login-gated
+   - Paths propositalmente FORA de /api/sync-neon/... (esse prefixo casa
+     antes, na rota do cron protegida por Bearer).
+   - CSRF same-origin passa (é POST da própria página). A trava de
+     concorrência (pg_advisory_lock) vive no sincronizar().
+====================================================== */
+router.post("/sync-manual", async (req, res) => {
+  const quem = req.session.user?.email || req.session.user?.nome || "operador";
+  try {
+    const r = await sincronizar({ origem: `manual:${quem}` });
+    return res.json(r);
+  } catch (e) {
+    if (e.code === "SYNC_EM_ANDAMENTO") {
+      return res.status(409).json({ ok: false, msg: "Já há uma sincronização em andamento. Tente em instantes." });
+    }
+    console.error("❌ /api/sync-manual:", e);
+    return res.status(500).json({ ok: false, msg: e.message || "Falha ao sincronizar." });
+  }
+});
+
+router.get("/sync-status", async (req, res) => {
+  try {
+    const ultimo = await ultimoSync();
+    return res.json({ ok: true, ultimo });
+  } catch (e) {
+    console.error("❌ /api/sync-status:", e);
+    return res.status(500).json({ ok: false, msg: e.message });
+  }
 });
 
 export default router;
