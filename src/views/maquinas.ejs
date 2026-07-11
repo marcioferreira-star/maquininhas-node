@@ -194,10 +194,11 @@
           data-serial="<%= (m.serial || '').toLowerCase() %>"
           data-status="<%= (m.status || '-').trim() %>"
           data-empresa="<%= (m.empresa || '-').trim() %>"
-          data-evento="<%= (m.idEvento || '').trim() %>"
-          data-nomeevento="<%= (m.nomeEvento || '-') %>"
-          data-produtora="<%= (m.produtora || '-') %>"
-          data-comercial="<%= (m.comercial || '-') %>"
+          <% const _temEvento = (m.status.startsWith('Em Uso') || m.status === 'Fixo'); %>
+          data-evento="<%= _temEvento ? (m.idEvento || '').trim() : '' %>"
+          data-nomeevento="<%= _temEvento ? (m.nomeEvento || '-') : '-' %>"
+          data-produtora="<%= _temEvento ? (m.produtora || '-') : '-' %>"
+          data-comercial="<%= _temEvento ? (m.comercial || '-') : '-' %>"
           data-retorno="<%= (m.status.startsWith('Em Uso') || m.status === 'Fixo') ? (m.dataRetorno || '-') : '-' %>"
           data-processando="<%= (m.processando || '-').trim() %>"
           data-situacao="<%= m.situacao || '' %>"
@@ -525,9 +526,12 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
           if (status.startsWith("Estoque")) {
             row.children[6].textContent = "-"; // ID Evento
             row.children[7].textContent = "-"; // Nome Evento
+            row.children[7].removeAttribute("title");
             row.children[8].textContent = "-"; // Data Retorno
             row.dataset.evento = "";
             row.dataset.nomeevento = "-";
+            row.dataset.produtora = "-";
+            row.dataset.comercial = "-";
             row.dataset.retorno = "-";
           } else if (status === "Fixo") {
             row.children[8].textContent = "-"; // Data Retorno (Fixo não retorna)
