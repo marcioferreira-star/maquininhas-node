@@ -3,6 +3,9 @@
 
 <style>
   /* usa .toolbar/.field/.control/.tbl/.empty do design system (Onda 0) */
+  /* tabela preenche a altura disponível (sem buraco embaixo) — escopo só desta tela */
+  .main-content { display: flex; flex-direction: column; }
+  .table-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
   /* table-layout:fixed + colgroup = colunas proporcionais (sem lacuna); truncagem por célula */
   .tbl { table-layout: fixed; min-width: 1080px; }
   .tbl tbody td { overflow: hidden; text-overflow: ellipsis; }   /* nowrap é global no .tbl td */

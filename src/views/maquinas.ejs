@@ -3,6 +3,9 @@
 
 <style>
   /* usa .toolbar/.field/.control/.tbl/.pill do design system (Onda 0) */
+  /* tabela preenche a altura disponível (sem buraco embaixo) — escopo só desta tela */
+  .main-content { display: flex; flex-direction: column; }
+  .table-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
   #contador { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-2); color: var(--muted); }
   .tbl { min-width: 1080px; }                 /* desktop: rola no .table-scroll */
   .tbl .select-status { height: 30px; font-size: var(--fs-md); padding: 0 6px; min-width: 116px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); }
