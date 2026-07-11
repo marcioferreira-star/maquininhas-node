@@ -494,3 +494,42 @@ a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border
   .toast { transition: none; }
   a:hover .kpi { transform: none; }
 }
+
+/* =============================================== */
+/* === SCANNER "BIPE" (câmera) — port do torre === */
+/* =============================================== */
+.scan-dialog { max-width: min(460px, 94vw); display: flex; flex-direction: column; }
+.scan-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+.scan-title { font-weight: 700; font-size: var(--fs-lg); }
+.scan-sub { font-size: var(--fs-xs); color: var(--muted); }
+.scan-x { border: 0; background: transparent; color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.scan-view { position: relative; background: #000; aspect-ratio: 3 / 4; overflow: hidden; }
+.scan-view video { width: 100%; height: 100%; display: block; object-fit: cover; }
+.scan-view video.scan-flash { animation: scan-flash .3s ease-out; }
+@keyframes scan-flash { from { filter: brightness(1.9); } to { filter: brightness(1); } }
+.scan-band { position: absolute; left: 0; right: 0; top: var(--scan-top, 39%); height: var(--scan-h, 22%); box-shadow: 0 0 0 2000px rgba(0,0,0,.45); border-top: 1px solid rgba(255,255,255,.35); border-bottom: 1px solid rgba(255,255,255,.35); pointer-events: none; }
+.aimer { position: absolute; left: 6%; right: 6%; top: var(--scan-top, 39%); height: var(--scan-h, 22%); pointer-events: none; }
+.aimer i { position: absolute; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.85); }
+.aimer i.tl { left: 0; top: 0; border-right: 0; border-bottom: 0; }
+.aimer i.tr { right: 0; top: 0; border-left: 0; border-bottom: 0; }
+.aimer i.bl { left: 0; bottom: 0; border-right: 0; border-top: 0; }
+.aimer i.br { right: 0; bottom: 0; border-left: 0; border-top: 0; }
+.scan-line { position: absolute; left: 6%; right: 6%; top: 50%; height: 2px; background: var(--brand); box-shadow: 0 0 10px var(--brand); pointer-events: none; }
+.scan-torch { position: absolute; right: 10px; top: 10px; border: 1px solid rgba(255,255,255,.45); background: rgba(0,0,0,.55); color: #fff; border-radius: var(--radius-full); padding: 5px 12px; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
+.scan-torch.on { background: var(--brand); border-color: var(--brand); }
+.scan-toast { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: 92%; padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: var(--fs-sm); background: rgba(0,0,0,.82); color: #fff; text-align: center; }
+.scan-toast.ok { background: rgba(31,122,55,.94); } .scan-toast.warn { background: rgba(138,109,0,.94); } .scan-toast.erro { background: rgba(192,57,43,.94); }
+.scan-erro { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: var(--space-5); color: #fff; background: rgba(0,0,0,.86); font-weight: 600; }
+.scan-ctl { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); font-size: var(--fs-sm); color: var(--muted); }
+.scan-ctl .scan-zoom { flex: 1; }
+.scan-seq { padding: var(--space-2) var(--space-4); border-top: 1px solid var(--border); }
+.scan-seq-head { font-size: var(--fs-sm); color: var(--muted); margin-bottom: 4px; }
+.scan-seq-head b { color: var(--text); }
+.scan-seq-list { max-height: 90px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+.scan-seq-item { font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; font-size: var(--fs-sm); color: var(--text); }
+.scan-foot { padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border); }
+.scan-foot .btn { width: 100%; }
+@media (max-width: 720px) {
+  .scan-dialog { max-width: 100vw; width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .scan-view { aspect-ratio: auto; flex: 1 1 auto; min-height: 0; }
+}

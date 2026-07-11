@@ -41,7 +41,13 @@
 
     <!-- LISTA -->
     <div class="panel">
-      <div class="section-title">Máquinas (Serial + Status)</div>
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span>Máquinas (Serial + Status)</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnBipar" title="Ler o código de barras da máquina">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 0 1 1-1h2"/><path d="M4 17v2a1 1 0 0 0 1 1h2"/><path d="M20 7V5a1 1 0 0 0-1-1h-2"/><path d="M20 17v2a1 1 0 0 1-1 1h-2"/><path d="M8 8v8M12 8v8M16 8v8"/></svg>
+          Bipar
+        </button>
+      </div>
 
       <input id="buscaSerial" type="text" class="control" placeholder="Pesquisar serial...">
       <div class="lista-maquinas" id="listaMaquinas"></div>
@@ -157,9 +163,13 @@ const btnRegistrar = document.getElementById("btnRegistrar");
 /* ===============================
    INDEXAR STATUS POR SERIAL
 =============================== */
+// índice normalizado (serial cru do barcode pode vir com caixa/espaço diferente da planilha)
+const normSerial = s => String(s || "").toUpperCase().replace(/\s+/g, "");
+const serialCanonicoPorNorm = {};
 maquinas.forEach(m => {
   const serial = String(m.serial || "").trim();
   maquinasPorSerial[serial] = String(m.status || "").trim();
+  if (serial) serialCanonicoPorNorm[normSerial(serial)] = serial;   // sempre empurramos o serial CANÔNICO da planilha
 });
 
 /* ===============================
@@ -390,6 +400,31 @@ busca.addEventListener("input", () => renderLista(busca.value));
 renderLista("");
 
 /* ===============================
+   BIPAR (scanner de câmera) — popula `selecionadas` lendo o código de barras.
+   Devolve 'ok'|'dup'|'notfound' → o scanner (scanner.js) dá o feedback (beep/toast).
+=============================== */
+function biparSerial(codigo) {
+  const canon = serialCanonicoPorNorm[normSerial(codigo)];
+  if (!canon) return "notfound";
+  if (selecionadas.includes(canon)) return "dup";
+  selecionadas.push(canon);                    // canônico da planilha (backend resolve linha por serial exato)
+  renderLista(busca.value);
+  renderSel();
+  return "ok";
+}
+const btnBipar = document.getElementById("btnBipar");
+if (btnBipar) {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    btnBipar.style.display = "none";           // sem câmera → some (desktop segue clicando/digitando)
+  } else {
+    btnBipar.addEventListener("click", () => {
+      if (typeof ScannerBipe === "undefined") { showToast("Leitor ainda carregando, tente de novo.", "err"); return; }
+      ScannerBipe.abrir({ onLeu: biparSerial, titulo: "Bipar máquina" });
+    });
+  }
+}
+
+/* ===============================
    DATA DE ENVIO DEFAULT = HOJE em BRT (injetado pelo servidor — não usar o
    relógio do navegador, cujo fuso pode divergir do BRT)
 =============================== */
@@ -481,5 +516,9 @@ if (btnSalvarEvento) {
 }
 renderSel();
 </script>
+
+<!-- Scanner "Bipe" (câmera) — só nesta tela: IIFE do zxing-wasm + o módulo do scanner -->
+<script defer src="/vendor/zxing/zxing-reader.iife.js"></script>
+<script defer src="/js/scanner.js"></script>
 
 <%- include('partials/footer') %>
