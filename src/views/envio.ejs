@@ -2,162 +2,36 @@
 <%- include('partials/sidebar', { page: 'envio', user }) %>
 
 <style>
-  .section-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 8px;
-  }
-
-  .area-flex {
-    display: flex;
-    gap: 20px;
-    width: 100%;
-    align-items: stretch;
-  }
-
-  .box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 15px;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .lista-maquinas {
-    height: 350px;
-    overflow-y: auto;
-  }
-
+  /* usa .panel/.control/.btn/.field do design system (Onda 0) */
+  .section-title { font-size: var(--fs-lg); font-weight: 700; margin-bottom: var(--space-2); }
+  .area-flex { display: flex; gap: var(--space-4); width: 100%; align-items: stretch; }
+  .area-flex > .panel { width: 100%; min-width: 0; }
+  #buscaSerial { width: 100%; margin-bottom: var(--space-3); }
+  .lista-maquinas { height: 350px; overflow-y: auto; }
   .item-maq {
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 6px;
-    cursor: pointer;
-    background: var(--surface-2);
-    color: var(--text);
+    padding: var(--space-2) var(--space-3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); margin-bottom: 6px; cursor: pointer;
+    background: var(--surface-2); color: var(--text); font-size: var(--fs-md);
   }
+  .item-maq.selecionada { background: var(--brand-soft); border-color: var(--brand); }
+  .selecionadas-box { height: 350px; border: 1px dashed var(--border); background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--space-2); overflow-y: auto; }
+  #listaSelecionadas { margin: 0; padding: 0; }
+  #listaSelecionadas li {
+    list-style: none; display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-2); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2);
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0;
+  }
+  #listaSelecionadas li .serial-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+  .campo { margin-bottom: var(--space-3); }
+  .campo > label { font-weight: 600; display: block; margin-bottom: var(--space-1); font-size: var(--fs-md); }
+  .campo .control, .campo textarea.control { width: 100%; }
+  /* botão registrar (full-width, grande) — usa .btn .btn-primary */
+  .btn-registrar { width: 100%; max-width: 600px; margin: var(--space-6) auto var(--space-8); font-size: var(--fs-lg); padding: 14px; }
 
-  .item-maq.selecionada {
-    background: rgba(255, 39, 26, 0.10);
-    border-color: var(--brand);
-  }
-
-  .selecionadas-box {
-    height: 350px;
-    border: 1px dashed var(--border);
-    background: var(--surface-2);
-    padding: 10px;
-    overflow-y: auto;
-  }
-
-  /* lista selecionadas: botão nunca some */
-  #listaSelecionadas {
-    margin: 0;
-    padding: 0;
-  }
-  #listaSelecionadas li{
-    list-style: none;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    min-width: 0;
-  }
-  #listaSelecionadas li .serial-text{
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: var(--text);
-  }
-
-  .campo {
-    margin-bottom: 12px;
-  }
-
-  .campo label {
-    font-weight: bold;
-    display: block;
-    margin-bottom: 4px;
-  }
-
-  .btn-registrar {
-    display: block;
-    width: 100%;
-    max-width: 600px;
-    margin: 30px auto 40px;
-    background: var(--brand);
-    border: none;
-    padding: 16px;
-    font-size: 18px;
-    font-weight: 600;
-    border-radius: 8px;
-    color: #fff;
-    cursor: pointer;
-    box-shadow: var(--shadow-lg);
-    transition: 0.2s ease;
-    text-align: center;
-  }
-
-  .btn-registrar:hover {
-    background: var(--brand-hover);
-    transform: translateY(-2px);
-  }
-
-  .btn-registrar:disabled {
-    opacity: 0.7;
-    cursor: not-allowed !important;
-  }
-
-  .btn-remove {
-    background: var(--danger);
-    color: #fff;
-    border: none;
-    padding: 2px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-    flex: 0 0 auto;
-  }
-
-  .btn-remove:hover {
-    background: var(--danger-hover);
-  }
-
-  #buscaSerial {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin-bottom: 10px;
-    font-size: 15px;
-    height: 38px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    border-radius: 8px;
-    padding: 0 12px;
-  }
-
-  /* ✅ MOBILE */
-  @media (max-width: 900px){
-    .area-flex{
-      flex-direction: column;
-    }
-    .lista-maquinas,
-    .selecionadas-box{
-      height: 280px;
-    }
-    .btn-registrar{
-      max-width: 100%;
-    }
+  @media (max-width: 720px){
+    .area-flex { flex-direction: column; }
+    .lista-maquinas, .selecionadas-box { height: 280px; }
+    .btn-registrar { max-width: 100%; }
   }
 </style>
 
@@ -168,15 +42,15 @@
   <div class="area-flex">
 
     <!-- LISTA -->
-    <div class="box">
+    <div class="panel">
       <div class="section-title">Máquinas (Serial + Status)</div>
 
-      <input id="buscaSerial" type="text" class="form-control" placeholder="Pesquisar serial...">
+      <input id="buscaSerial" type="text" class="control" placeholder="Pesquisar serial...">
       <div class="lista-maquinas" id="listaMaquinas"></div>
     </div>
 
     <!-- SELECIONADAS -->
-    <div class="box">
+    <div class="panel">
       <div class="section-title">Selecionadas</div>
       <div class="selecionadas-box">
         <ul id="listaSelecionadas"></ul>
@@ -188,11 +62,11 @@
   <!-- FORMULÁRIO -->
   <form id="formEnvio" style="margin-top: 25px;">
 
-    <div class="box">
+    <div class="panel">
 
       <div class="campo">
         <label>Ação</label>
-        <select name="acao" id="acaoSelect" class="form-control" required>
+        <select name="acao" id="acaoSelect" class="control" required>
           <option value="">Selecione...</option>
           <option value="Envio SP">Envio SP</option>
           <option value="Envio RJ">Envio RJ</option>
@@ -214,40 +88,40 @@
           pattern="[0-9]*"
           name="id_evento"
           id="idEvento"
-          class="form-control"
+          class="control"
           placeholder="Ex: 66689"
         >
         <!-- eco ao vivo do nome do evento + cadastro rápido quando não existe -->
         <div id="ecoEvento" style="font-size:13px;margin-top:6px;min-height:18px;"></div>
         <div id="formNovoEvento" style="display:none;margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);">
           <div style="font-weight:600;margin-bottom:6px;font-size:13px;">Cadastrar evento <span id="novoEventoId"></span></div>
-          <input type="text" id="novoEventoNome" class="form-control" placeholder="Nome do evento" style="margin-bottom:6px;">
-          <input type="text" id="novoEventoProdutora" class="form-control" placeholder="Produtora (opcional)" style="margin-bottom:6px;">
-          <input type="text" id="novoEventoComercial" class="form-control" placeholder="Comercial (opcional)" style="margin-bottom:6px;">
-          <button type="button" id="btnSalvarEvento" class="btn-azul" style="padding:8px 14px;font-size:14px;">Salvar evento</button>
+          <input type="text" id="novoEventoNome" class="control" placeholder="Nome do evento" style="margin-bottom:6px;">
+          <input type="text" id="novoEventoProdutora" class="control" placeholder="Produtora (opcional)" style="margin-bottom:6px;">
+          <input type="text" id="novoEventoComercial" class="control" placeholder="Comercial (opcional)" style="margin-bottom:6px;">
+          <button type="button" id="btnSalvarEvento" class="btn btn-primary btn-sm">Salvar evento</button>
         </div>
       </div>
 
       <!-- ✅ DATA ENVIO / SAÍDA (só envio, inclusive fixo) -->
       <div class="campo" id="grpDataSaida">
         <label>Data de Envio</label>
-        <input type="date" name="dt_saida" id="dtSaida" class="form-control">
+        <input type="date" name="dt_saida" id="dtSaida" class="control">
       </div>
 
       <!-- ✅ DATA RETORNO (só envio normal, não fixo) -->
       <div class="campo" id="grpDataRetorno">
         <label>Data de Retorno</label>
-        <input type="date" name="dt_retorno" id="dtRetorno" class="form-control">
+        <input type="date" name="dt_retorno" id="dtRetorno" class="control">
       </div>
 
       <div class="campo">
         <label>Observações</label>
-        <textarea name="obs" id="obs" class="form-control" rows="3" placeholder="Opcional..."></textarea>
+        <textarea name="obs" id="obs" class="control" rows="3" placeholder="Opcional..."></textarea>
       </div>
 
     </div>
 
-    <button type="submit" class="btn-registrar" id="btnRegistrar">
+    <button type="submit" class="btn btn-primary btn-registrar" id="btnRegistrar">
       Registrar movimentação
     </button>
 
@@ -355,7 +229,7 @@ function renderSel() {
 
     li.innerHTML = `
       <span class="serial-text">${s}</span>
-      <button type="button" class="btn-remove" onclick="removerSel('${s.replace(/'/g, "\\'")}')">×</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="removerSel('${s.replace(/'/g, "\\'")}')">×</button>
     `;
 
     listaSel.appendChild(li);
@@ -486,9 +360,8 @@ form.addEventListener("submit", async (e) => {
 
     // se retorno precisar origem manual (popup)
     if (data && data.needsPopup) {
-      const origem = prompt(
-        "Alguns seriais não possuem histórico/origem.\n\n" +
-        "Digite uma observação de origem (ex: 'Retorno sem histórico - veio do estoque X'):"
+      const origem = await uiPrompt(
+        "Alguns seriais não têm histórico de origem. Digite uma observação de origem (ex: 'veio do estoque X'):"
       );
 
       if (!origem) {
@@ -541,7 +414,7 @@ async function lookupEvento() {
   const id = idEvento.value.trim();
   if (formNovoEvento) formNovoEvento.style.display = "none";
   if (!id) { ecoEvento.textContent = ""; return; }
-  ecoEvento.style.color = "#888";
+  ecoEvento.style.color = "var(--muted)";
   ecoEvento.textContent = "Verificando evento…";
   try {
     const r = await fetch("/api/evento/" + encodeURIComponent(id));
@@ -549,10 +422,10 @@ async function lookupEvento() {
       const data = await r.json();
       const ev = data.evento || {};
       const prod = ev.produtora && ev.produtora !== "-" ? " — " + ev.produtora : "";
-      ecoEvento.style.color = "#1f7a37";
+      ecoEvento.style.color = "var(--pill-ok-fg)";
       ecoEvento.textContent = "Evento: " + (ev.nome_evento || "-") + prod;
     } else if (r.status === 404) {
-      ecoEvento.style.color = "#c0392b";
+      ecoEvento.style.color = "var(--danger)";
       ecoEvento.textContent = "ID não encontrado. ";
       const b = document.createElement("button");
       b.type = "button";
@@ -565,11 +438,11 @@ async function lookupEvento() {
       });
       ecoEvento.appendChild(b);
     } else {
-      ecoEvento.style.color = "#c0392b";
+      ecoEvento.style.color = "var(--danger)";
       ecoEvento.textContent = "Não foi possível validar o evento agora. Tente de novo.";
     }
   } catch (e) {
-    ecoEvento.style.color = "#c0392b";
+    ecoEvento.style.color = "var(--danger)";
     ecoEvento.textContent = "Erro de rede ao validar o evento.";
   }
 }
