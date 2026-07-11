@@ -98,6 +98,22 @@ a planilha agora — GAS bound + operadores + curadoria pausada). Marcio aprovou
 - **Ops do dia:** `EXCECOES_ATIVAS=1` ligado em prod; `SESSION_SECRET` rotacionado (`vercel env`, valor nunca
   impresso); alias `maquininhas-preview` removido. ⚠️ classificador do harness barra `vercel env` de SECRET
   em prod se o Marcio não NOMEAR o secret (feature-flag passa; secret exige naming explícito).
+- ⚠️ **PREVIEW QUEBRADO (500):** a rotação do `SESSION_SECRET` tirou ele do escopo **Preview** (era
+  "Production, Preview"; virou só Production). O app faz fail-closed no boot (preview tem NODE_ENV=production)
+  → 500 em qualquer preview. **Prod intacto.** Restaurar: `node -e "...randomBytes(48).toString('base64url')" |
+  vercel env add SESSION_SECRET preview` (o classificador barra o Claude de recriar secret que o Marcio não
+  nomeou). Enquanto não restaurar, inspeção de UI logada = server LOCAL com `VERCEL_ENV=preview` (bypass).
+
+### 2026-07-11 (noite) — Polimento UI desktop + mobile (branch `feat/ui-polish-detalhes`, EM PROD `fc50f00`)
+Pós-review do Marcio (screenshots): (1) login `.top-box` `var(--ink)`→`#000` (seam da logo); (2) sidebar
+`.logo` `padding:18px`→`height:52px` (alinha a divisória com a top-header); (3) **buraco embaixo das tabelas**
+(Máquinas/Histórico): `.table-scroll { max-height:68vh }` deixava gap → `.main-content` vira flex-column com
+`max-height:calc(100vh-60px)` e a `.table-scroll` `flex:1` preenche + rola interno (o `flex:1` sem container
+limitado tinha esticado a tabela p/ 24977px — lição: flex-fill precisa de container de altura BOUNDED).
+**Mobile:** o fill-flex vazava p/ ≤720 (cards rolavam em container aninhado) → resetado no media query
+(`.main-content{display:block}`/`.table-scroll{flex:none;max-height:none;overflow:visible}`). **Exceções**
+ganhou cards no mobile (data-label nas 3 tabelas + card CSS ≤720; antes era scroll horizontal). Verificado
+LOCAL (server `VERCEL_ENV=preview`) em desktop + 390px, screenshots nas 6 telas.
 
 ### 2026-07-11 — Redesenho "A Densificada" (Ondas 0–6) EM PRODUÇÃO
 Reskin + reestruturação de CSS/markup guiado pelo plano `docs/DESIGN-PROPOSTA-2026-07.md` (direção A
