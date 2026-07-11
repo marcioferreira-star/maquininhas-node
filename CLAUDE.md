@@ -78,6 +78,29 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-11 (noite) — Scanner "Bipe" no Envio (ilha React do componente do torre) EM PROD
+Câmera lê o código de barras do serial → cai em "Selecionadas" (sem digitar). Marcio pediu explicitamente
+o scanner **do torre** — que é React/TS. Como o maquininhas é Express+EJS **sem bundler**, a solução foi
+uma **ILHA REACT**: o `BarcodeScanner.tsx` REAL do torre bundlado num IIFE standalone.
+- **`src/scanner-island/`**: `BarcodeScanner.tsx` + `scanner-engine.ts` + `Icon.tsx` copiados VERBATIM do
+  torre (`packages/ui/src/`; único ajuste: imports `./x.js`→`./x`) + `entry.tsx` (expõe
+  `window.ScannerBipe.abrir({onLeu,existing,titulo})` + seta o `locateFile` do zxing p/ o wasm local).
+- **Build** `npm run build:scanner` (esbuild, `--jsx=automatic`, `--define process.env.NODE_ENV=production`)
+  → `src/public/vendor/scanner-torre.js` (~292KB: React 19 + react-dom + componente + zxing-wasm 3.1.0 +
+  barcode-detector). **Bundle COMITADO; a Vercel NÃO builda.** DevDeps (react/esbuild/…) dev-only.
+- **`src/public/vendor/zxing/zxing_reader.wasm`** (1.09MB) servido local (`locateFile`, sem CDN). MIME
+  `application/wasm` ok (mime@1.6.0). CSS `.modal-*`/`.scan-*` do torre copiado p/ `style.css` + aliases de
+  token no `:root` (`--panel-2`→`--surface-2`, `--ok-soft`→pill fg, `--radius-pill`→`--radius-full`, etc.).
+- **`envio.ejs`**: botão "Bipar" no painel Máquinas + `biparSerial(code)` (normaliza, casa o serial
+  **canônico** da planilha, popula `selecionadas`; devolve ok|dup|notfound) + `<script defer>` do bundle.
+  **Zero mudança** em validação/payload/submit.
+- **LIÇÃO:** port à mão do scanner DIVERGIU (tela escura = exposição adaptativa travando; leitura lenta =
+  gate pulando 86%; foco ruim = faltava o **slider de foco manual `focusDistance`**). A ilha React (o
+  componente real) matou tudo isso. Requer HTTPS (getUserMedia) — prod/preview ok, local localhost.
+  ⚠️ Preview só funciona com `SESSION_SECRET` no escopo Preview (some quando rotacionado — ver acima).
+- Validado no CELULAR real pelo Marcio ("deu certo"). EM PROD (`a7405bd`). **Atualizar** = re-copiar os 3
+  arquivos do torre + `npm run build:scanner` (ver `src/scanner-island/README.md`).
+
 ### 2026-07-11 (tarde) — Cutover Neon Fases 0–1 (fundação de LEITURA) + ops
 Plano do cutover em `docs/CUTOVER-NEON-2026-07-11.md` (recomenda read-cutover faseado, **NÃO** aposentar
 a planilha agora — GAS bound + operadores + curadoria pausada). Marcio aprovou começar Fases 0–1.
