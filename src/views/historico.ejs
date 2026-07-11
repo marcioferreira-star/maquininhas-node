@@ -14,6 +14,9 @@
 
   /* MOBILE (<=720): a tabela vira CARDS (DOM único — tr vira card, td vira linha rótulo:valor) */
   @media (max-width: 720px) {
+    /* no mobile a tabela vira CARDS → desfaz o preenchimento flex do desktop */
+    .main-content { display: block; max-height: none; }
+    .table-scroll { flex: none; max-height: none; overflow: visible; border: 0; background: transparent; }
     .tbl { table-layout: auto; min-width: 0; }
     .tbl thead { display: none; }
     .tbl, .tbl tbody { display: block; }

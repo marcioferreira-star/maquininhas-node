@@ -16,6 +16,20 @@
   /* tabelas: .tbl da fundação; scroll interno menor (listas curtas) */
   .exc-section .table-scroll { max-height: 340px; }
   .exc-section .tbl { min-width: 620px; }
+
+  /* MOBILE (<=720): as tabelas viram CARDS (rótulo:valor), igual Máquinas/Histórico */
+  @media (max-width: 720px) {
+    .exc-section .table-scroll { max-height: none; overflow: visible; border: 0; }
+    .exc-section .tbl { min-width: 0; }
+    .exc-section .tbl thead { display: none; }
+    .exc-section .tbl, .exc-section .tbl tbody { display: block; }
+    .exc-section .tbl tbody tr { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); }
+    .exc-section .tbl tbody tr:nth-child(odd) td, .exc-section .tbl tbody tr:hover td { background: transparent; }
+    .exc-section .tbl tbody td { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); padding: 4px 0; border: none; white-space: normal; overflow: visible; text-overflow: clip; }
+    .exc-section .tbl tbody td::before { content: attr(data-label); flex: 0 0 auto; font-weight: 600; font-size: var(--fs-xs); color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    .exc-section .tbl tbody td.empty { display: block; text-align: center; }
+    .exc-section .tbl tbody td.empty::before { display: none; }
+  }
 </style>
 
 <div class="main-content">
@@ -49,9 +63,9 @@
         <tbody>
           <% perdidas.forEach(p => { %>
             <tr>
-              <td><%= p.serial %></td><td><%= p.status %></td><td><%= p.responsavel %></td>
-              <td><%= p.idEvento %><%= p.nomeEvento && p.nomeEvento !== '-' ? ' — ' + p.nomeEvento : '' %></td>
-              <td><%= p.observacao %></td>
+              <td data-label="Serial"><%= p.serial %></td><td data-label="Status"><%= p.status %></td><td data-label="Responsável"><%= p.responsavel %></td>
+              <td data-label="Evento"><%= p.idEvento %><%= p.nomeEvento && p.nomeEvento !== '-' ? ' — ' + p.nomeEvento : '' %></td>
+              <td data-label="Obs"><%= p.observacao %></td>
             </tr>
           <% }) %>
           <% if (perdidas.length === 0) { %><tr><td colspan="5" class="empty">Nenhuma máquina perdida registrada.</td></tr><% } %>
@@ -78,7 +92,7 @@
         <thead><tr><th>Com defeito</th><th>Problema</th><th>Local</th><th>Nova</th></tr></thead>
         <tbody>
           <% trocas.forEach(t => { %>
-            <tr><td><%= t.defeito %></td><td><%= t.problema %></td><td><%= t.local %></td><td><%= t.nova %></td></tr>
+            <tr><td data-label="Com defeito"><%= t.defeito %></td><td data-label="Problema"><%= t.problema %></td><td data-label="Local"><%= t.local %></td><td data-label="Nova"><%= t.nova %></td></tr>
           <% }) %>
           <% if (trocas.length === 0) { %><tr><td colspan="4" class="empty">Nenhuma troca registrada.</td></tr><% } %>
         </tbody>
@@ -102,7 +116,7 @@
         <thead><tr><th>Serial</th><th>Modelo</th><th>Referência</th></tr></thead>
         <tbody>
           <% localizar.forEach(l => { %>
-            <tr><td><%= l.serial %></td><td><%= l.modelo %></td><td><%= l.referencia %></td></tr>
+            <tr><td data-label="Serial"><%= l.serial %></td><td data-label="Modelo"><%= l.modelo %></td><td data-label="Referência"><%= l.referencia %></td></tr>
           <% }) %>
           <% if (localizar.length === 0) { %><tr><td colspan="3" class="empty">Nenhuma máquina a localizar.</td></tr><% } %>
         </tbody>
