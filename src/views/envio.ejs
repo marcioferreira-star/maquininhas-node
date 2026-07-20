@@ -7,6 +7,7 @@
   .area-flex { display: flex; gap: var(--space-4); width: 100%; align-items: stretch; }
   .area-flex > .panel { width: 100%; min-width: 0; }
   #buscaSerial { width: 100%; margin-bottom: var(--space-3); }
+  #btnSelecionarFiltradas { width: 100%; margin-bottom: var(--space-3); }
   .lista-maquinas { height: 350px; overflow-y: auto; }
   .item-maq {
     padding: var(--space-2) var(--space-3); border: 1px solid var(--border);
@@ -51,7 +52,9 @@
         </button>
       </div>
 
-      <input id="buscaSerial" type="text" class="control" placeholder="Pesquisar serial...">
+      <input id="buscaSerial" type="text" class="control" placeholder="Pesquisar serial... (cole vários: espaço, vírgula ou linhas)">
+      <!-- atalho: cola N seriais → seleciona os N de uma vez (só aparece com filtro ativo) -->
+      <button type="button" class="btn btn-secondary btn-sm" id="btnSelecionarFiltradas" style="display:none;"></button>
       <div class="lista-maquinas" id="listaMaquinas"></div>
     </div>
 
@@ -153,6 +156,7 @@ let maquinasPorSerial = {};
 const lista = document.getElementById("listaMaquinas");
 const listaSel = document.getElementById("listaSelecionadas");
 const busca = document.getElementById("buscaSerial");
+const btnSelFiltradas = document.getElementById("btnSelecionarFiltradas");
 const acaoSelect = document.getElementById("acaoSelect");
 
 const grpIdEvento = document.getElementById("grpIdEvento");
@@ -177,6 +181,35 @@ maquinas.forEach(m => {
 /* ===============================
    RENDER LISTA
 =============================== */
+/* ===============================
+   SELEÇÃO EM MASSA DO QUE ESTÁ FILTRADO
+   Fecha o fluxo scanner → "Copiar" → colar → registrar sem clicar item a item.
+=============================== */
+let filtradasAtuais = [];
+
+function atualizarBtnSelecionar(qtdTermos) {
+  if (!btnSelFiltradas) return;
+  const novas = filtradasAtuais.filter(s => !selecionadas.includes(s));
+  const mostrar = qtdTermos > 0 && novas.length > 0;   // só com filtro ativo e algo a adicionar
+  btnSelFiltradas.style.display = mostrar ? "" : "none";
+  if (mostrar) {
+    btnSelFiltradas.textContent = novas.length === 1
+      ? "Selecionar a máquina encontrada"
+      : `Selecionar as ${novas.length} encontradas`;
+  }
+}
+
+if (btnSelFiltradas) {
+  btnSelFiltradas.addEventListener("click", () => {
+    const novas = filtradasAtuais.filter(s => !selecionadas.includes(s));
+    if (!novas.length) return;
+    selecionadas.push(...novas);
+    renderLista(busca.value);
+    renderSel();
+    showToast(novas.length === 1 ? "1 máquina adicionada" : `${novas.length} máquinas adicionadas`);
+  });
+}
+
 /* Separadores aceitos: espaço, TAB, quebra de linha, vírgula, ponto e vírgula, pipe
    e barra — para colar direto do "Copiar" do scanner (separa por espaço), de planilha
    (TAB/linhas), do WhatsApp ou de uma lista com vírgula. */
@@ -201,6 +234,10 @@ function renderLista(filtro = "") {
     // mostra se bater com QUALQUER serial digitado
     return termos.some(t => serial.includes(t));
   });
+
+  // seriais atualmente visíveis — alimenta o botão "Selecionar as N encontradas"
+  filtradasAtuais = filtradas.map(m => String(m.serial || "").trim()).filter(Boolean);
+  atualizarBtnSelecionar(termos.length);
 
   const frag = document.createDocumentFragment();
 

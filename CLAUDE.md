@@ -95,6 +95,10 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
   vírgula, ponto-e-vírgula, pipe e barra. Antes o Envio só quebrava por **vírgula** e o Histórico
   fazia `replace(/\s+/g,"")` ANTES do split → colar a saída do **"Copiar" do scanner** (que separa
   por **espaço**) não casava nada.
+- **Envio — botão "Selecionar as N encontradas"** (`#btnSelecionarFiltradas`, abaixo da busca): fecha o
+  fluxo **scanner → "Copiar" → colar → registrar** sem clicar item a item. Só aparece com **filtro ativo
+  E** algo novo a adicionar (nunca vira "selecionar as 552"; some quando as filtradas já estão todas
+  selecionadas, então não duplica). Singular vira "Selecionar a máquina encontrada".
 - **Envio:** lista renderiza via `DocumentFragment` (1 inserção em vez de 552) + debounce 120 ms.
 - Verificado no browser (server local com `VERCEL_ENV=preview`) contra os dados reais: 1427 linhas,
   os 4 seriais do print do Marcio casando, zero erro de console. Lint + 15/15 verdes.
