@@ -78,6 +78,28 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-07-20 — Filtro do Histórico em memória + separadores flexíveis na busca (PROD `4e5b754`)
+- **🐛 BUG NOMEADO — "innerText em loop de filtro = layout thrashing":** `historico.ejs` lia
+  `row.cells[N].innerText` de 3 células × ~1.4k linhas **a cada tecla**. `innerText` é CSS-aware e
+  **força reflow** por leitura → **1190 ms de bloqueio por caractere** (medido no browser com os
+  dados reais). **Regra que previne:** em filtro de tabela, indexar UMA vez no load (`textContent`,
+  que não força layout) ou usar `dataset` — nunca ler `innerText` dentro do loop de filtragem.
+  (`maquinas.ejs` já usava `dataset` e por isso nunca travou.) Depois do fix: **0,6 ms**.
+- Escreve no DOM **só quando a visibilidade muda** + debounce 150 ms + **Enter aplica na hora**.
+  Ganhou contador "N de M registros" e linha "Nenhum registro para esse filtro".
+- **🐛 BUG NOMEADO — "`<input>` de linha única come as quebras de linha":** colar uma coluna de
+  planilha num `<input type=text>` faz o navegador DESCARTAR `\n`/`\t`, grudando tudo num termo só
+  (0 resultados, sem erro). **Regra:** interceptar `paste` e normalizar `[\r\n\t]+`→espaço antes de
+  inserir (feito no Histórico e no Envio).
+- **Separadores da busca por múltiplos seriais** (Histórico + Envio): espaço, TAB, quebra de linha,
+  vírgula, ponto-e-vírgula, pipe e barra. Antes o Envio só quebrava por **vírgula** e o Histórico
+  fazia `replace(/\s+/g,"")` ANTES do split → colar a saída do **"Copiar" do scanner** (que separa
+  por **espaço**) não casava nada.
+- **Envio:** lista renderiza via `DocumentFragment` (1 inserção em vez de 552) + debounce 120 ms.
+- Verificado no browser (server local com `VERCEL_ENV=preview`) contra os dados reais: 1427 linhas,
+  os 4 seriais do print do Marcio casando, zero erro de console. Lint + 15/15 verdes.
+  ⚠️ Screenshot travou de novo (gotcha conhecido do renderer) — validação foi por DOM.
+
 ### 2026-07-11 (noite) — Scanner "Bipe" no Envio (ilha React do componente do torre) EM PROD
 Câmera lê o código de barras do serial → cai em "Selecionadas" (sem digitar). Marcio pediu explicitamente
 o scanner **do torre** — que é React/TS. Como o maquininhas é Express+EJS **sem bundler**, a solução foi
