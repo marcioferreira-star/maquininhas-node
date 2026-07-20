@@ -11,6 +11,7 @@
   .tbl { table-layout: fixed; min-width: 1080px; }
   .tbl tbody td { overflow: hidden; text-overflow: ellipsis; }   /* nowrap é global no .tbl td */
   .nome-cell span, .prod-cell span, .com-cell span, .obs-cell span { vertical-align: middle; }
+  .contador { display: inline-block; padding-top: 8px; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
 
   /* MOBILE (<=720): a tabela vira CARDS (DOM único — tr vira card, td vira linha rótulo:valor) */
   @media (max-width: 720px) {
@@ -64,6 +65,7 @@
         <option value="fixo">Fixo</option>
       </select>
     </div>
+    <div class="field"><label>&nbsp;</label><span id="contadorHist" class="contador"></span></div>
   </div>
 
   <!-- TABELA (uma só: .table-scroll = scroll interno 68vh + thead sticky) -->
@@ -116,6 +118,7 @@
           <% }) %>
         <% } %>
 
+        <tr id="semResultado" style="display:none"><td colspan="10" class="empty">Nenhum registro para esse filtro</td></tr>
       </tbody>
     </table>
   </div>
@@ -128,16 +131,38 @@ const filtroSerial = document.getElementById("filtroSerial");
 const filtroEvento = document.getElementById("filtroEvento");
 const filtroAcao   = document.getElementById("filtroAcao");
 
-const tabela = document.getElementById("bodyHistorico");
+const tabela    = document.getElementById("bodyHistorico");
+const contador  = document.getElementById("contadorHist");
+const semResult = document.getElementById("semResultado");
+
+function normalizar(v) {
+  return String(v || "").toLowerCase().replace(/\s+/g, "");
+}
+
+/* =====================================================
+   ÍNDICE EM MEMÓRIA (lido UMA vez no load)
+   Antes o filtro lia `innerText` de 3 células por linha a cada tecla; com ~1.4k
+   linhas isso são milhares de reflows forçados por caractere → travava a tela.
+   `textContent` não força layout, e aqui nem é relido: fica cacheado.
+===================================================== */
+const linhas = Array.from(tabela.querySelectorAll("tr.linha")).map(tr => ({
+  el: tr,
+  serial: normalizar(tr.cells[0].textContent),
+  evento: normalizar(tr.cells[1].textContent),
+  acao:   String(tr.cells[2].textContent || "").toLowerCase(),
+  visivel: true
+}));
 
 /* =====================================================
    SUPORTE A MÚLTIPLOS SERIAIS E EVENTOS
+   Separadores aceitos: espaço, TAB, quebra de linha, vírgula, ponto e vírgula,
+   pipe e barra — para colar direto do scanner ("Copiar" separa por espaço),
+   de planilha (TAB/linhas), do WhatsApp ou de lista com vírgula.
 ===================================================== */
 function parseLista(value) {
-  return value
+  return String(value || "")
     .toLowerCase()
-    .replace(/\s+/g, "")
-    .split(/[,;\n]+/g)
+    .split(/[\s,;|/]+/)
     .filter(x => x !== "");
 }
 
@@ -145,28 +170,67 @@ function aplicarFiltros() {
   const listaSeriais = parseLista(filtroSerial.value);
   const listaEventos = parseLista(filtroEvento.value);
   const acaoFiltro   = filtroAcao.value.toLowerCase();
+  const filtrando    = listaSeriais.length > 0 || listaEventos.length > 0 || !!acaoFiltro;
 
-  for (const row of tabela.rows) {
-    let show = true;
+  let visiveis = 0;
 
-    const colSerial = row.cells[0].innerText.toLowerCase().replace(/\s+/g, "");
-    const colEvento = row.cells[1].innerText.toLowerCase().replace(/\s+/g, "");
-    const colAcao   = row.cells[2].innerText.toLowerCase();
+  for (const l of linhas) {
+    const show =
+      (listaSeriais.length === 0 || listaSeriais.some(v => l.serial.includes(v))) &&
+      (listaEventos.length === 0 || listaEventos.some(v => l.evento.includes(v))) &&
+      (!acaoFiltro || l.acao.includes(acaoFiltro));
 
-    if (listaSeriais.length > 0 && !listaSeriais.some(v => colSerial.includes(v)))
-      show = false;
+    // só escreve no DOM quando o estado MUDA (evita layout desnecessário)
+    if (show !== l.visivel) {
+      l.el.style.display = show ? "" : "none";
+      l.visivel = show;
+    }
+    if (show) visiveis++;
+  }
 
-    if (listaEventos.length > 0 && !listaEventos.some(v => colEvento.includes(v)))
-      show = false;
-
-    if (acaoFiltro && !colAcao.includes(acaoFiltro))
-      show = false;
-
-    row.style.display = show ? "" : "none";
+  if (semResult) semResult.style.display = (filtrando && visiveis === 0) ? "" : "none";
+  if (contador) {
+    contador.textContent = filtrando
+      ? `${visiveis} de ${linhas.length} registros`
+      : `${linhas.length} registros`;
   }
 }
 
-filtroSerial.addEventListener("input", aplicarFiltros);
-filtroEvento.addEventListener("input", aplicarFiltros);
-filtroAcao.addEventListener("change", aplicarFiltros);
+/* debounce: digitar não dispara um filtro por tecla; Enter aplica na hora */
+let timerFiltro = null;
+function agendarFiltro() {
+  clearTimeout(timerFiltro);
+  timerFiltro = setTimeout(aplicarFiltros, 150);
+}
+function aplicarAgora() {
+  clearTimeout(timerFiltro);
+  aplicarFiltros();
+}
+
+/* Colar de planilha/lista traz quebras de linha e TAB; o <input> de linha única
+   DESCARTA esses caracteres e gruda tudo num termo só. Normaliza para espaço. */
+function normalizarColagem(el) {
+  el.addEventListener("paste", (e) => {
+    const txt = ((e.clipboardData || window.clipboardData) || {}).getData?.("text") || "";
+    if (!/[\r\n\t]/.test(txt)) return;                     // colagem simples segue o caminho normal
+    e.preventDefault();
+    const limpo = txt.replace(/[\r\n\t]+/g, " ").trim();
+    const ini = el.selectionStart ?? el.value.length;
+    const fim = el.selectionEnd ?? el.value.length;
+    el.value = el.value.slice(0, ini) + limpo + el.value.slice(fim);
+    const pos = ini + limpo.length;
+    el.setSelectionRange(pos, pos);
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+[filtroSerial, filtroEvento].forEach(el => {
+  normalizarColagem(el);
+  el.addEventListener("input", agendarFiltro);
+  el.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); aplicarAgora(); } });
+  el.addEventListener("change", aplicarAgora);   // paste + blur / autofill
+});
+filtroAcao.addEventListener("change", aplicarAgora);
+
+aplicarFiltros();
 </script>

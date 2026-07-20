@@ -177,15 +177,20 @@ maquinas.forEach(m => {
 /* ===============================
    RENDER LISTA
 =============================== */
+/* Separadores aceitos: espaço, TAB, quebra de linha, vírgula, ponto e vírgula, pipe
+   e barra — para colar direto do "Copiar" do scanner (separa por espaço), de planilha
+   (TAB/linhas), do WhatsApp ou de uma lista com vírgula. */
+function parseTermos(filtro) {
+  return String(filtro || "")
+    .toLowerCase()
+    .split(/[\s,;|/]+/)
+    .filter(t => t !== "");
+}
+
 function renderLista(filtro = "") {
   lista.innerHTML = "";
 
-  // 🔥 quebra por vírgula e limpa espaços
-  const termos = filtro
-    .toLowerCase()
-    .split(",")
-    .map(t => t.trim())
-    .filter(t => t !== "");
+  const termos = parseTermos(filtro);
 
   const filtradas = maquinas.filter(m => {
     const serial = String(m.serial || "").toLowerCase();
@@ -197,6 +202,7 @@ function renderLista(filtro = "") {
     return termos.some(t => serial.includes(t));
   });
 
+  const frag = document.createDocumentFragment();
 
   filtradas.forEach(m => {
     const serial = String(m.serial || "").trim();
@@ -218,8 +224,10 @@ function renderLista(filtro = "") {
       renderSel();
     };
 
-    lista.appendChild(div);
+    frag.appendChild(div);
   });
+
+  lista.appendChild(frag);   // 1 inserção no DOM em vez de N (552 máquinas)
 }
 
 /* ===============================
@@ -405,7 +413,29 @@ form.addEventListener("submit", async (e) => {
 });
 
 /* INIT */
-busca.addEventListener("input", () => renderLista(busca.value));
+/* Colar de planilha/lista traz quebras de linha e TAB; o <input> de linha única
+   DESCARTA esses caracteres e gruda tudo num termo só. Normaliza para espaço. */
+busca.addEventListener("paste", (e) => {
+  const txt = ((e.clipboardData || window.clipboardData) || {}).getData?.("text") || "";
+  if (!/[\r\n\t]/.test(txt)) return;                       // colagem simples segue o caminho normal
+  e.preventDefault();
+  const limpo = txt.replace(/[\r\n\t]+/g, " ").trim();
+  const ini = busca.selectionStart ?? busca.value.length;
+  const fim = busca.selectionEnd ?? busca.value.length;
+  busca.value = busca.value.slice(0, ini) + limpo + busca.value.slice(fim);
+  const pos = ini + limpo.length;
+  busca.setSelectionRange(pos, pos);
+  busca.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
+let timerBusca = null;
+busca.addEventListener("input", () => {
+  clearTimeout(timerBusca);
+  timerBusca = setTimeout(() => renderLista(busca.value), 120);   // não re-renderiza a lista a cada tecla
+});
+busca.addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); clearTimeout(timerBusca); renderLista(busca.value); }
+});
 renderLista("");
 
 /* ===============================
