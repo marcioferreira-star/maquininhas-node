@@ -106,3 +106,119 @@ export function montarHistorico(dados) {
     };
   });
 }
+
+/* ============================================================
+   AJUSTE MANUAL DE STATUS (tela Máquinas → Salvar)
+   Antes o /atualizar-status mudava a CONTROLE sem gravar no HISTORICO:
+   divergência silenciosa e origem (evento/produtora/…) destruída sem rastro.
+============================================================ */
+// ⚠️ NUNCA renomear para algo contendo "envio"/"retorno"/"fixo": sync-neon.js:tipoMov,
+// datas.js:situacaoPrazo, api.js:getUltimoEnvio e o filtro Ação do /historico
+// classificam por SUBSTRING dessas palavras. "Ajuste manual" cai em AJUSTE no enum.
+export const ACAO_AJUSTE = "Ajuste manual";
+
+const _val = (v) => {
+  const s = String(v ?? "").trim();
+  return s && s !== "-" ? s : "-";
+};
+
+/**
+ * Planeja um ajuste manual de status: quais células da CONTROLE mudar (DIFF — só
+ * o que realmente muda) e a linha A..K a gravar no HISTORICO, preservando a origem
+ * (evento/produtora/comercial/saída) que a CONTROLE vai perder ao virar Estoque.
+ * Puro: recebe a máquina (shape de repo/sheets.js), hoje ("dd/mm/aaaa") e o autor.
+ * Retorna { nadaAMudar, celulas: [{col, value}], historicoRow }.
+ */
+export function montarAjusteStatus(maquina, statusNovo, hojeBRStr, autor) {
+  const statusAnterior = _val(maquina.status);
+  const celulas = [];
+
+  if (statusAnterior !== statusNovo) celulas.push({ col: "G", value: statusNovo });
+
+  const limpar = (col, atual) => {
+    if (_val(atual) !== "-") celulas.push({ col, value: "-" });
+  };
+  if (statusNovo === "Fixo") {
+    limpar("O", maquina.dataRetorno);
+  } else if (statusNovo.startsWith("Estoque")) {
+    limpar("J", maquina.idEvento);
+    limpar("K", maquina.nomeEvento);
+    limpar("L", maquina.produtora);
+    limpar("M", maquina.comercial);
+    limpar("O", maquina.dataRetorno);
+  }
+
+  if (celulas.length === 0) return { nadaAMudar: true, celulas: [], historicoRow: null };
+
+  // col E do HISTORICO: Estoque = voltou HOJE (igual ao retorno normal);
+  // Fixo = sem retorno; qualquer outro = mantém a data atual da CONTROLE.
+  let dataRetornoHist = _val(maquina.dataRetorno);
+  if (statusNovo.startsWith("Estoque")) dataRetornoHist = hojeBRStr;
+  else if (statusNovo === "Fixo") dataRetornoHist = "-";
+
+  const obs = statusAnterior === statusNovo
+    ? `${ACAO_AJUSTE}: limpeza de vínculo de evento (status mantido: ${statusNovo})`
+    : `${ACAO_AJUSTE}: ${statusAnterior} → ${statusNovo}`;
+
+  return {
+    nadaAMudar: false,
+    celulas,
+    historicoRow: [
+      _val(maquina.serial),       // A serial
+      _val(maquina.idEvento),     // B id_evento (ANTES da limpeza — origem preservada)
+      ACAO_AJUSTE,                // C ação
+      _val(maquina.dataSaida),    // D data saída (antes da limpeza)
+      dataRetornoHist,            // E data retorno
+      statusNovo,                 // F status (texto congelado; o app recalcula ao vivo)
+      autor || "Sistema",         // G usuário
+      _val(maquina.nomeEvento),   // H nome evento (antes da limpeza)
+      _val(maquina.produtora),    // I produtora
+      _val(maquina.comercial),    // J comercial
+      obs                         // K observação (audit: de-onde → para-onde)
+    ]
+  };
+}
+
+/* ============================================================
+   CONTRATO DE RESPOSTA DO /registrar-envio (total / parcial / nada)
+   Antes um sucesso PARCIAL (N gravados, M recusados) voltava 422 ok:false —
+   o operador achava que nada foi feito e reenviava.
+============================================================ */
+/** Traduz o `step` interno de recusa para português de operador. */
+export function motivoRecusaEnvio(erro) {
+  const st = erro?.statusAtual ? ` (status atual: ${erro.statusAtual})` : "";
+  switch (erro?.step) {
+    case "nao-esta-em-uso":    return `não está Em Uso/Fixo${st} — retorno recusado`;
+    case "ja-fora-do-estoque": return `já está fora do estoque${st} — envio recusado`;
+    case "serial-duplicado":   return "serial aparece mais de uma vez na planilha — resolva a duplicidade antes";
+    case "not-found":          return "serial não encontrado na planilha CONTROLE";
+    case "no-line":            return "não foi possível localizar a linha na planilha";
+    case "invalid-serial":     return "serial vazio ou inválido";
+    default:                   return `recusada (${erro?.step || "motivo desconhecido"})`;
+  }
+}
+
+/**
+ * Monta o corpo + status HTTP do resultado do envio.
+ * - tudo gravado  → 200 { ok:true, gravados }
+ * - PARCIAL       → 200 { ok:true, parcial:true, gravados, erros[+motivo], msg }
+ *   (ok:true porque a planilha MUDOU: um front antigo cai no caminho de sucesso e
+ *   recarrega — degradação graciosa, nunca "erro" com dado já gravado)
+ * - nada gravado  → 422 { ok:false, gravados:0, erros[+motivo], msg }
+ */
+export function montarRespostaEnvio(gravados, recusados) {
+  if (!recusados || recusados.length === 0) {
+    return { http: 200, body: { ok: true, gravados } };
+  }
+  const erros = recusados.map((e) => ({ ...e, motivo: motivoRecusaEnvio(e) }));
+  if (gravados === 0) {
+    return {
+      http: 422,
+      body: { ok: false, gravados: 0, erros, msg: `Nenhuma máquina foi registrada (${erros.length} recusada(s)).` }
+    };
+  }
+  return {
+    http: 200,
+    body: { ok: true, parcial: true, gravados, erros, msg: `${gravados} máquina(s) registrada(s); ${erros.length} recusada(s).` }
+  };
+}

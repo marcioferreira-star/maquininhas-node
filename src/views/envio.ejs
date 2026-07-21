@@ -435,9 +435,25 @@ form.addEventListener("submit", async (e) => {
       data = await enviarPayload({ ...payload, obs_origem: origem });
     }
 
-    if (data && data.ok) {
+    const detalheRecusas = (lista) =>
+      (lista || []).map(e => `${e.serial || "?"} — ${e.motivo || e.step || "recusada"}`).join(" · ");
+
+    if (data && data.ok && data.parcial) {
+      // PARCIAL: a planilha MUDOU → modal com o placar + motivo de cada recusa,
+      // e recarrega SEMPRE (independente do botão) p/ a tela refletir o estado real.
+      await uiConfirm(
+        `${data.gravados} máquina(s) registrada(s). ` +
+        `${(data.erros || []).length} recusada(s): ${detalheRecusas(data.erros)}`,
+        "Entendi"
+      );
+      location.reload();
+    } else if (data && data.ok) {
       showToast("Movimentação registrada");
       setTimeout(() => location.reload(), 1100); // recarrega p/ refletir os novos status
+    } else if (data && Array.isArray(data.erros) && data.erros.length) {
+      // NADA gravado (422): modal com os motivos; NÃO recarrega (seleção preservada
+      // p/ o operador corrigir e reenviar).
+      await uiConfirm(`Nenhuma máquina foi registrada. ${detalheRecusas(data.erros)}`, "Entendi");
     } else {
       showToast((data && data.msg) ? data.msg : "Erro ao registrar.", "err");
     }

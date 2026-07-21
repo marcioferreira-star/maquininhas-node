@@ -73,3 +73,16 @@ test("montarHistorico — vazio/indefinido → []", () => {
   assert.deepEqual(montarHistorico([]), []);
   assert.deepEqual(montarHistorico(undefined), []);
 });
+
+// R2 documentado: uma linha "Ajuste manual" (do /atualizar-status) vira o último
+// movimento do serial → o Envio anterior passa a exibir "Devolvida", e a própria
+// linha de ajuste não tem situação de prazo (não contém "envio").
+test("montarHistorico — Ajuste manual encerra o envio (Devolvida) e não tem prazo", () => {
+  const dados = [
+    ["S1", "100", "Envio SP",      "01/06/2026", "30/06/2026", "Em Uso SP",  "u", "EvA", "", "", ""], // 0
+    ["S1", "100", "Ajuste manual", "01/06/2026", "10/07/2026", "Estoque SP", "u", "EvA", "", "", "Ajuste manual: Em Uso SP → Estoque SP"] // 1 (último de S1)
+  ];
+  const h = montarHistorico(dados);
+  assert.equal(h[0].situacao, "Devolvida", "envio deixou de ser o último → Devolvida");
+  assert.equal(h[1].situacao, "", "linha de ajuste não é envio → sem situação de prazo");
+});
