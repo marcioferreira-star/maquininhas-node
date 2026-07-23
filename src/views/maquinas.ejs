@@ -436,7 +436,7 @@ document.querySelectorAll(".btn-salvar").forEach(btn => {
       const data = await resp.json();
 
       if (data.ok) {
-        showToast("Status atualizado");
+        showToast(data.msg || "Status atualizado");
         if (row) {
           // atualização in-place (preserva filtros/rolagem — sem location.reload)
           row.dataset.status = status;

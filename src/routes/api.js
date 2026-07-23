@@ -11,6 +11,7 @@ import {
 
 import { batchUpdateValues } from "../sheet.js";
 import { hojeBR, parseBRDate, dataISOValida } from "../utils/datas.js";
+import { montarAjusteStatus, montarRespostaEnvio } from "../utils/dominio.js";
 import {
   marcarPerdida,
   registrarTroca,
@@ -25,6 +26,19 @@ const excecoesAtivas = () => process.env.EXCECOES_ATIVAS === "1";
 const router = express.Router();
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
+
+// snapshot dos valores ATUAIS (G,O,N,J,K,L,M) de uma linha da CONTROLE — usado
+// p/ desfazer o batchUpdate se o append no HISTORICO falhar (gravação quase-
+// atômica). Compartilhado por /registrar-envio e /atualizar-status.
+const snapshotControle = (ln, m) => [
+  { range: `'${SHEET_NAME}'!G${ln}`, value: m.status ?? "-" },
+  { range: `'${SHEET_NAME}'!O${ln}`, value: m.dataRetorno ?? "-" },
+  { range: `'${SHEET_NAME}'!N${ln}`, value: m.dataSaida ?? "-" },
+  { range: `'${SHEET_NAME}'!J${ln}`, value: m.idEvento ?? "-" },
+  { range: `'${SHEET_NAME}'!K${ln}`, value: m.nomeEvento ?? "-" },
+  { range: `'${SHEET_NAME}'!L${ln}`, value: m.produtora ?? "-" },
+  { range: `'${SHEET_NAME}'!M${ln}`, value: m.comercial ?? "-" }
+];
 
 /* ======================================================
    Utils
@@ -182,17 +196,6 @@ router.post("/registrar-envio", async (req, res) => {
     const pendenciasPopup = [];
     const erros = [];
 
-    // snapshot dos valores atuais (G,O,N,J,K,L,M) de uma linha — usado p/ rollback
-    const snapshotRollback = (ln, m) => [
-      { range: `'${SHEET_NAME}'!G${ln}`, value: m.status ?? "-" },
-      { range: `'${SHEET_NAME}'!O${ln}`, value: m.dataRetorno ?? "-" },
-      { range: `'${SHEET_NAME}'!N${ln}`, value: m.dataSaida ?? "-" },
-      { range: `'${SHEET_NAME}'!J${ln}`, value: m.idEvento ?? "-" },
-      { range: `'${SHEET_NAME}'!K${ln}`, value: m.nomeEvento ?? "-" },
-      { range: `'${SHEET_NAME}'!L${ln}`, value: m.produtora ?? "-" },
-      { range: `'${SHEET_NAME}'!M${ln}`, value: m.comercial ?? "-" }
-    ];
-
     /* ============================
        LOOP PRINCIPAL
     ============================ */
@@ -312,7 +315,7 @@ router.post("/registrar-envio", async (req, res) => {
             obs_origem
           ]);
 
-          rollbackUpdates.push(...snapshotRollback(linha, maquina));
+          rollbackUpdates.push(...snapshotControle(linha, maquina));
           valueUpdates.push(
             { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
             { range: `'${SHEET_NAME}'!O${linha}`, value: hoje },
@@ -346,7 +349,7 @@ router.post("/registrar-envio", async (req, res) => {
         // HISTÓRICO (origem.*), mas no CONTROLE as colunas de evento (J..M) são
         // LIMPAS — igual ao retorno órfão e ao /atualizar-status→Estoque. Antes,
         // este caminho mantinha o evento e os três caminhos divergiam.
-        rollbackUpdates.push(...snapshotRollback(linha, maquina));
+        rollbackUpdates.push(...snapshotControle(linha, maquina));
         valueUpdates.push(
           { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
           { range: `'${SHEET_NAME}'!O${linha}`, value: hoje },
@@ -384,7 +387,7 @@ router.post("/registrar-envio", async (req, res) => {
         obs || "-"
       ]);
 
-      rollbackUpdates.push(...snapshotRollback(linha, maquina));
+      rollbackUpdates.push(...snapshotControle(linha, maquina));
       valueUpdates.push(
         { range: `'${SHEET_NAME}'!G${linha}`, value: statusFinal },
         { range: `'${SHEET_NAME}'!O${linha}`, value: dataRetornoBR },
@@ -445,15 +448,11 @@ router.post("/registrar-envio", async (req, res) => {
     /* ======================================================
        RETORNO FINAL
     ======================================================= */
-    if (erros.length > 0) {
-      return res.status(422).json({
-        ok: false,
-        msg: `Alguns itens não foram processados (${erros.length}). Verifique status/duplicidade.`,
-        erros
-      });
-    }
-
-    return res.json({ ok: true });
+    // cada máquina gravada empurrou exatamente 1 linha de histórico. O contrato
+    // distingue total (200 ok) / PARCIAL (200 ok+parcial, a planilha mudou) /
+    // nada gravado (422). Ver montarRespostaEnvio em utils/dominio.js.
+    const resposta = montarRespostaEnvio(historicoRows.length, erros);
+    return res.status(resposta.http).json(resposta.body);
   } catch (err) {
     console.error("❌ ERRO /api/registrar-envio:", err);
     return res.status(500).json({ ok: false, msg: "Erro interno no servidor." });
@@ -489,31 +488,38 @@ router.post("/atualizar-status", async (req, res) => {
 
     if (!m) return res.status(404).json({ ok: false, msg: "Serial não encontrado." });
 
-    const updates = [];
+    // DIFF + linha do HISTORICO (preserva a origem que a CONTROLE vai perder).
+    const autor = req.session.user?.nome || "Sistema";
+    const plano = montarAjusteStatus(m, statusLimpo, hojeBR(), autor);
 
-    // Atualiza STATUS (coluna G)
-    updates.push({ range: `'${SHEET_NAME}'!G${m.linha}`, value: statusLimpo });
-
-    // Se virou FIXO → limpa retorno (coluna O) pra não ficar data antiga
-    if (statusLimpo === "Fixo") {
-      updates.push({ range: `'${SHEET_NAME}'!O${m.linha}`, value: "-" });
+    // nada mudaria na planilha (status igual e nada a limpar) → não grava nem loga
+    if (plano.nadaAMudar) {
+      return res.json({ ok: true, msg: `Nada a alterar — a máquina já está em ${statusLimpo}.` });
     }
 
-    // Se virou ESTOQUE → limpa evento e retorno (mantém planilha coerente)
-    if (statusLimpo.startsWith("Estoque")) {
-      updates.push(
-        { range: `'${SHEET_NAME}'!J${m.linha}`, value: "-" },
-        { range: `'${SHEET_NAME}'!K${m.linha}`, value: "-" },
-        { range: `'${SHEET_NAME}'!L${m.linha}`, value: "-" },
-        { range: `'${SHEET_NAME}'!M${m.linha}`, value: "-" },
-        { range: `'${SHEET_NAME}'!O${m.linha}`, value: "-" }
-      );
-    }
+    const updates = plano.celulas.map((c) => ({
+      range: `'${SHEET_NAME}'!${c.col}${m.linha}`,
+      value: c.value
+    }));
+    const rollback = snapshotControle(m.linha, m); // snapshot ANTES de escrever
 
+    /* gravação quase-atômica (mesmo padrão do /registrar-envio):
+       1º CONTROLE; 2º HISTORICO; se o log falhar, desfaz o CONTROLE — nunca
+       fica "status mudado sem registro" (a divergência silenciosa que existia). */
     const ok = await batchUpdateValues(updates);
-    if (!ok) return res.status(500).json({ ok: false, msg: "Falha ao atualizar." });
-
+    if (!ok) return res.status(500).json({ ok: false, msg: "Falha ao atualizar. Nada foi gravado, tente de novo." });
     invalidarCacheMaquinas(); // a planilha mudou → não servir estado antigo
+
+    const okHist = await registrarMovimento([plano.historicoRow]);
+    if (!okHist) {
+      const okRb = await batchUpdateValues(rollback);
+      console.error("❌ Histórico do ajuste falhou. Rollback do CONTROLE:", okRb ? "OK" : "FALHOU");
+      invalidarCacheMaquinas();
+      return res.status(500).json({
+        ok: false,
+        msg: "Falha ao gravar o histórico. A alteração foi revertida, tente de novo."
+      });
+    }
 
     return res.json({ ok: true });
   } catch (err) {
