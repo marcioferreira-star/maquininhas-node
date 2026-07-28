@@ -337,8 +337,10 @@ política única e cadastro de evento validados ao vivo — ver memória `maquin
 - ~~Coluna "Status" congelada no /historico~~ **RESOLVIDO:** é a col F do HISTORICO (texto "Atrasado"/"Dentro do prazo" gravado no envio, nunca recalculado). O app JÁ recalcula a situação AO VIVO (`db.js:getHistorico` + `situacaoPrazo`) e IGNORA a col F. Não migrar essa coluna (é derivada).
 
 ## 🔧 Recomendações pendentes (não feitas ainda)
-- **`users.json`**: os 7 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio
-  (03/06): manter assim por enquanto.**
+- **`users.json`**: os 8 usuários têm o MESMO hash (mesma senha). **Decisão do Marcio
+  (03/06): manter assim por enquanto.** Liberar alguém = acrescentar `{nome,email,senha}`
+  reusando o mesmo hash (último: `yuri.yogui@` em 28/07). ⚠️ O login casa o e-mail por
+  **string exata** (`login.js:95`, sem trim/lowercase) — gravar sempre em minúsculas.
 - **MemoryStore de sessão**: resolvido (cookie-session). | **CSRF/ESLint/node_modules**: feitos.
 - **Atomicidade**: o rollback é "best-effort" (se o processo cair entre o update do CONTROLE
   e o append do histórico, não há compensação). Aceitável para o volume atual.
