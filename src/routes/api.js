@@ -158,7 +158,7 @@ router.post("/registrar-envio", async (req, res) => {
         eventoInfo = await getEventoInfo(id_evento);
       } catch (e) {
         // erro de LEITURA da planilha ≠ "ID não existe"
-        console.error("❌ Falha ao ler DADOS EVENTOS:", e);
+        console.error("❌ Falha ao ler o cadastro de eventos:", e);
         return res.status(503).json({
           ok: false,
           msg: "Não foi possível validar o evento agora (planilha indisponível). Tente de novo."
@@ -168,7 +168,7 @@ router.post("/registrar-envio", async (req, res) => {
       if (!eventoInfo) {
         return res.status(404).json({
           ok: false,
-          msg: `O ID ${id_evento} não existe na aba DADOS EVENTOS.`
+          msg: `O ID ${id_evento} não existe no cadastro de eventos.`
         });
       }
     }
@@ -558,7 +558,8 @@ router.get("/evento/:id", async (req, res) => {
 });
 
 /* ======================================================
-   POST /api/evento — cadastra evento novo na aba DADOS EVENTOS
+   POST /api/evento — cadastra evento novo na aba DADOS EVENTOS MANUAIS
+   (a aba DADOS EVENTOS é derivada de fórmula — escrever lá quebra a QUERY)
 ====================================================== */
 router.post("/evento", async (req, res) => {
   try {
@@ -586,7 +587,8 @@ router.post("/evento", async (req, res) => {
       id,
       nome: nomeT,
       produtora: String(produtora || "").trim(),
-      comercial: String(comercial || "").trim()
+      comercial: String(comercial || "").trim(),
+      usuario: req.session.user?.nome || "Sistema"
     });
     if (!ok) return res.status(500).json({ ok: false, msg: "Falha ao cadastrar o evento." });
 

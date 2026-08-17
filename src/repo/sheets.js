@@ -2,13 +2,15 @@
 // Fetch + shape PUROS (sem cache — o cache mora em db.js). Extraído de db.js na
 // Fase 1 do cutover. Comportamento idêntico ao db.js original quando READ_BACKEND
 // é "sheets" (default), então o corte de leitura é reversível por env var.
-import { getSheetData } from "../sheet.js";
+import { getSheetData, getSheetDataOptional } from "../sheet.js";
 import { serialSheetParaBR } from "../utils/datas.js";
-import { montarHistorico } from "../utils/dominio.js";
+import { montarHistorico, acharEvento } from "../utils/dominio.js";
 
 const SHEET_NAME = "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE";
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
 const EVENTOS_SHEET = "DADOS EVENTOS";
+export const EVENTOS_MANUAIS_SHEET = "DADOS EVENTOS MANUAIS";
+
 
 /** Lista de máquinas no shape que as rotas/views esperam (status/data cruas, "-" p/ vazio). */
 export async function fetchMaquinas() {
@@ -39,15 +41,15 @@ export async function fetchHistorico() {
   return montarHistorico(dados);
 }
 
-/** Info de um evento (id já trimado por db.js). Null se não existe. */
+/**
+ * Info de um evento (id já trimado por db.js). Null se não existe.
+ * Procura na aba oficial (derivada da QUERY) e, como complemento, na aba dos
+ * cadastros manuais feitos pelo próprio app. Precedência da oficial em acharEvento.
+ */
 export async function fetchEventoInfo(alvo) {
-  const linhas = await getSheetData(`'${EVENTOS_SHEET}'!A2:D`);
-  const row = linhas.find((r) => String(r[0]).trim() === alvo);
-  if (!row) return null;
-  return {
-    id_evento: row[0],
-    nome_evento: row[1] || "-",
-    produtora: row[2] || "-",
-    comercial: row[3] || "-"
-  };
+  const [oficiais, manuais] = await Promise.all([
+    getSheetData(`'${EVENTOS_SHEET}'!A2:D`),
+    getSheetDataOptional(`'${EVENTOS_MANUAIS_SHEET}'!A2:D`)
+  ]);
+  return acharEvento(oficiais, manuais, alvo);
 }

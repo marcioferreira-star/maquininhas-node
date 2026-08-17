@@ -69,16 +69,35 @@ export async function getSheetData(range) {
 }
 
 /* =====================================================
-   🔵 APPEND (multi-rows/geral)
+   🔵 LER ABA OPCIONAL — tolera SÓ "a aba não existe"
+   - A aba de eventos manuais é criada na 1ª escrita; até lá o Sheets responde
+     400 "Unable to parse range". Isso é ausência, não falha → [].
+   - Qualquer outro erro (403/429/5xx/rede) PROPAGA: a regra do projeto é
+     "erro ≠ vazio" (mascarar viraria "evento não existe" em vez de 503).
 ===================================================== */
-export async function appendToSheet(range, values) {
+export async function getSheetDataOptional(range) {
+  try {
+    return await getSheetData(range);
+  } catch (error) {
+    if (/unable to parse range/i.test(error?.message || "")) return [];
+    throw error;
+  }
+}
+
+/* =====================================================
+   🔵 APPEND (multi-rows/geral)
+   - opts.valueInputOption: "USER_ENTERED" (default, comportamento histórico)
+     ou "RAW". RAW grava o texto LITERAL: é o que impede o Sheets de reparsear
+     "17/08/2026" em en-US e trocar dia↔mês (ver CLAUDE.md raiz §5).
+===================================================== */
+export async function appendToSheet(range, values, opts = {}) {
   try {
     const rows = Array.isArray(values?.[0]) ? values : [values];
 
     await getSheetsClient().spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range,
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: opts.valueInputOption || "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: rows }
     });
@@ -88,6 +107,49 @@ export async function appendToSheet(range, values) {
     console.error("❌ Erro ao append na planilha:", error);
     return false;
   }
+}
+
+/* =====================================================
+   🔵 GARANTIR QUE UMA ABA EXISTE (idempotente)
+   - Cria a aba + linha de cabeçalho se ela não existir; se já existir, no-op.
+   - Usado só no caminho de ESCRITA de abas que pertencem ao app (nunca em abas
+     derivadas de fórmula). Duas invocações serverless podem correr ao mesmo
+     tempo: o "already exists" da API é tratado como sucesso, não como erro.
+===================================================== */
+export async function ensureSheetExists(title, headerRow) {
+  const sheets = getSheetsClient();
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: "sheets(properties(title))"
+  });
+  const existe = (meta.data.sheets || []).some(
+    (s) => s.properties?.title === title
+  );
+  if (existe) return true;
+
+  try {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title } } }]
+      }
+    });
+  } catch (error) {
+    // corrida entre invocações: outra já criou → segue o jogo
+    if (!/already exists/i.test(error?.message || "")) throw error;
+    return true;
+  }
+
+  if (Array.isArray(headerRow) && headerRow.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `'${title}'!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [headerRow] }
+    });
+  }
+  return true;
 }
 
 /* =====================================================

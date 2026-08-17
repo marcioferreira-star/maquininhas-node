@@ -32,6 +32,27 @@ export function hojeBR() {
 }
 
 /**
+ * Carimbo de auditoria "dd/mm/aaaa hh:mm" no fuso de Brasília.
+ * Mesma fonte do hojeBR (Intl), então não depende do TZ do processo — na Vercel
+ * (UTC) um carimbo cru sairia 3h à frente.
+ */
+export function agoraBR() {
+  const s = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23" // h23 e não hour12:false — este devolve "24:00" à meia-noite
+  }).format(new Date());
+  // en-CA devolve "aaaa-mm-dd, hh:mm"
+  const [data, hora] = s.split(",").map((p) => p.trim());
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano} ${hora}`;
+}
+
+/**
  * Converte "dd/mm/aaaa" em um Date à meia-noite LOCAL.
  * Retorna null se a string for vazia, "-" ou inválida.
  */

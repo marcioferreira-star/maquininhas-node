@@ -7,17 +7,21 @@
 // arquivos .sql). Os scripts em tools/etl/* são os equivalentes para rodar à mão.
 
 import pg from "pg";
-import { getSheetData } from "./sheet.js";
+import { getSheetData, getSheetDataOptional } from "./sheet.js";
 import { serialSheetParaBR } from "./utils/datas.js";
 
 const TABS = {
   CONTROLE: "CONTROLE MAQUININHAS PAGSEGURO - INGRESSE",
   HISTORICO: "HISTORICO MAQUINAS",
   EVENTOS: "DADOS EVENTOS",
+  EVENTOS_MANUAIS: "DADOS EVENTOS MANUAIS",
   PERDIDAS: "PERDIDAS PAGSEGURO - INGRESSE",
   TROCAS: "TROCAS",
   LOCALIZAR: "LOCALIZAR"
 };
+// origem_linha dos eventos manuais entra deslocada: a coluna é INT e serve só
+// p/ rastrear a linha de origem — 1.000.002+ nunca colide com a aba oficial.
+const LINHA_BASE_MANUAIS = 1_000_000;
 const ANO_MIN = 2018;
 const SENTINELAS = new Set(["01/01/2040", "15/07/1905"]);
 
@@ -190,10 +194,11 @@ export async function sincronizar({ origem = "cron" } = {}) {
   if (!url) throw new Error("DATABASE_URL não configurada.");
   const inicio = Date.now();
 
-  const [controle, historico, eventos, perdidas, trocas, localizar] = await Promise.all([
+  const [controle, historico, eventos, eventosManuais, perdidas, trocas, localizar] = await Promise.all([
     getSheetData(`'${TABS.CONTROLE}'!A2:P`),
     getSheetData(`'${TABS.HISTORICO}'!A2:K`),
     getSheetData(`'${TABS.EVENTOS}'!A2:D`),
+    getSheetDataOptional(`'${TABS.EVENTOS_MANUAIS}'!A2:D`), // pode não existir ainda
     getSheetData(`'${TABS.PERDIDAS}'!A2:P`),
     getSheetData(`'${TABS.TROCAS}'!A2:D`),
     getSheetData(`'${TABS.LOCALIZAR}'!A2:K`)
@@ -217,12 +222,22 @@ export async function sincronizar({ origem = "cron" } = {}) {
       dm([dS.motivo === "sentinela" ? null : dS.motivo, dR.motivo === "sentinela" ? null : dR.motivo])];
   });
   const visto = new Map();
-  const rowsEv = eventos.map((r, i) => {
+  // Eventos = aba oficial (derivada da QUERY) + cadastros manuais do app, estes
+  // SEM os IDs que a oficial já traz (mesma precedência da leitura em
+  // repo/sheets.js). origem_linha dos manuais deslocada p/ não colidir.
+  const idsOficiais = new Set(eventos.map((r) => nn(r[0])).filter(Boolean));
+  const eventosTodos = [
+    ...eventos.map((r, i) => ({ r, linha: i + 2 })),
+    ...eventosManuais
+      .filter((r) => { const id = nn(r[0]); return id && !idsOficiais.has(id); })
+      .map((r, i) => ({ r, linha: LINHA_BASE_MANUAIS + i + 2 }))
+  ];
+  const rowsEv = eventosTodos.map(({ r, linha }) => {
     const idRaw = nn(r[0]), prod = parseProdutora(r[2]), chave = `${nn(r[1]) || ""}|${nn(r[2]) || ""}|${nn(r[3]) || ""}`;
     let mot = null;
     if (idRaw && /^\d+$/.test(idRaw)) { if (!visto.has(idRaw)) visto.set(idRaw, new Set()); const s = visto.get(idRaw); if (s.size >= 1 && !s.has(chave)) mot = "evento_divergente"; s.add(chave); }
     else if (idRaw) mot = "id_nao_numerico";
-    return [i + 2, j(r), nn(r[0]), (idRaw && /^\d+$/.test(idRaw)) ? idRaw : null, nn(r[1]), prod.codigo, prod.nome, nn(r[3]), dm([mot])];
+    return [linha, j(r), nn(r[0]), (idRaw && /^\d+$/.test(idRaw)) ? idRaw : null, nn(r[1]), prod.codigo, prod.nome, nn(r[3]), dm([mot])];
   });
   const rowsPerd = perdidas.map((r, i) => {
     const idp = parseId(r[7], r[8]), dE = dataISO(r[11]), cL = classificaData(r[11]), cM = classificaData(r[12]);

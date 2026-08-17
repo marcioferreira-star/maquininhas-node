@@ -22,14 +22,19 @@ e status de hardware de checkout para eventos. Estoque em **SP, RJ e URA**.
 - `src/views/` — EJS + partials
 - `src/auth/` — middleware de sessão, `createUser.js`, `users.json`
 
-## Planilha (6 abas — o app só conhece 3)
-O app lê/escreve APENAS estas 3:
+## Planilha (7 abas — o app só conhece 4)
+O app lê/escreve APENAS estas 4:
 - `CONTROLE MAQUININHAS PAGSEGURO - INGRESSE` — cadastro. Colunas USADAS:
   B=modelo, C=serial, G=status, I=empresa, J=idEvento, K=nomeEvento, L=produtora,
   M=comercial, N=dataSaída, O=dataRetorno. ⚠️ A leitura para em O de propósito;
   **D=Operadora, E=Info Chip, F=verificação, H=Processando?, P=OBSERVAÇÃO, R=Count são IGNORADAS**.
 - `HISTORICO MAQUINAS` — log de movimentos (cols A–K; col F "Status" é texto congelado, o app recalcula ao vivo e ignora).
-- `DADOS EVENTOS` — cadastro de eventos (cols A–D).
+- `DADOS EVENTOS` — cadastro de eventos (cols A–D). ⚠️ **SOMENTE LEITURA — é 100% derivada:**
+  uma única fórmula `=QUERY({IMPORTRANGE(…); IMPORTRANGE(…)}; "select Col3,Col4,Col11,Col10 …"; 1)`
+  em **A1** expande ~3,5k linhas a partir de 2 planilhas de ACOMPANHAMENTO GERAL. **Nunca escrever nela.**
+- `DADOS EVENTOS MANUAIS` — cadastros feitos pelo app (A=ID, B=Nome, C=Produtora, D=Comercial,
+  E=Cadastrado em `dd/mm/aaaa hh:mm` TEXTO, F=Cadastrado por). Criada sob demanda no 1º cadastro
+  (`ensureSheetExists`). A leitura de evento junta esta aba com a oficial (oficial vence).
 
 ⚠️ **Existem +3 abas que o app NÃO conhece** e os operadores editam à mão (origem provável das datas-lixo `01/01/2040`, `15/07/1905`):
 - `PERDIDAS PAGSEGURO - INGRESSE` (máquinas perdidas; schema próprio, col J="Responsável" ≠ Produtora)
@@ -77,6 +82,34 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 ---
 
 ## Histórico de mudanças por agentes
+
+### 2026-08-17 — Cadastro manual de evento saiu da aba derivada (aba `DADOS EVENTOS MANUAIS`)
+- **🐛 BUG NOMEADO — "append em aba de fórmula mata a fórmula inteira":** `cadastrarEvento` fazia
+  `values.append` em `'DADOS EVENTOS'!A:D`, mas aquela aba **não tem uma única célula digitada** — é o
+  resultado expandido de um `QUERY/IMPORTRANGE` em A1. A linha literal fica embaixo do array; na
+  primeira vez que a QUERY recalcula e **cresce**, a expansão colide com ela e a fórmula vira `#REF!`
+  → a aba **zera** → `getEventoInfo` devolve null para **TODOS** os IDs → todo envio acusa "ID não
+  existe". Uma linha derruba a aba inteira. **Regra que previne:** antes de escrever numa aba do
+  Sheets, checar se ela é derivada (`values.get` com `valueRenderOption:"FORMULA"` — se só A1 tem
+  conteúdo e é `=QUERY/=IMPORTRANGE/=FILTER`, a aba é resultado, não tabela). Escrita do app SEMPRE
+  em aba própria; a junção é na LEITURA.
+- **Escrita:** `cadastrarEvento` grava em `'DADOS EVENTOS MANUAIS'!A:F` com `valueInputOption:"RAW"`
+  (o carimbo `dd/mm/aaaa hh:mm` precisa ficar TEXTO — `USER_ENTERED` reparseia em en-US e troca
+  dia↔mês) + `usuario` da sessão. Aba criada sob demanda por `sheet.js:ensureSheetExists` (idempotente;
+  trata "already exists" de duas lambdas concorrentes). Nova `datas.js:agoraBR()` (Intl BRT, `hourCycle:"h23"`
+  — `hour12:false` devolve "24:00" à meia-noite).
+- **Leitura:** `repo/sheets.js:fetchEventoInfo` lê as duas abas em paralelo e delega ao
+  `dominio.js:acharEvento(oficiais, manuais, id)` (puro, testado): **a oficial vence**, a manual complementa.
+  `sheet.js:getSheetDataOptional` tolera **só** o 400 `Unable to parse range` (aba ainda não criada);
+  qualquer outro erro propaga — a regra "erro ≠ vazio" continua valendo (503 ≠ "não existe").
+- **Espelho Neon:** `sync-neon.js` lê a aba manual (opcional) e concatena nos eventos, **filtrando IDs
+  que a oficial já traz**; `origem_linha` deslocada em `1.000.000` para não colidir.
+- Testes **34/34** + lint verdes (novo `test/eventos-merge.test.js`: precedência, aba ausente, trim,
+  linha malformada, ID vazio, formato do carimbo). Verificado contra a planilha REAL: leitura ok com a
+  aba inexistente → cadastro de teste criou a aba e a linha (data como `stringValue`) → releitura pelo
+  merge → linha de teste apagada; `DADOS EVENTOS` intacta (3.415 linhas, A1 ainda `=QUERY`, zero `#REF!`).
+- **Consequência aceita:** eventos manuais não aparecem para quem abre `DADOS EVENTOS` (ficam na aba ao
+  lado). Unir na fórmula (`={QUERY(…); 'DADOS EVENTOS MANUAIS'!A2:D}`) é opção futura, não requisito.
 
 ### 2026-07-20 — Filtro do Histórico em memória + separadores flexíveis na busca (PROD `4e5b754`)
 - **🐛 BUG NOMEADO — "innerText em loop de filtro = layout thrashing":** `historico.ejs` lia

@@ -222,3 +222,35 @@ export function montarRespostaEnvio(gravados, recusados) {
     body: { ok: true, parcial: true, gravados, erros, msg: `${gravados} máquina(s) registrada(s); ${erros.length} recusada(s).` }
   };
 }
+
+/**
+ * Acha um evento nas DUAS fontes de cadastro (lógica pura, testável).
+ *
+ * Por que duas fontes: a aba "DADOS EVENTOS" é 100% derivada — uma única fórmula
+ * QUERY/IMPORTRANGE em A1 que expande milhares de linhas. Escrever uma linha
+ * literal ali faz a expansão colidir e a fórmula inteira vira #REF! (a aba zera e
+ * NENHUM evento é encontrado). Por isso o app grava os cadastros manuais numa aba
+ * própria e junta as duas na LEITURA.
+ *
+ * Precedência: a oficial vence (é a fonte curada); a manual só complementa.
+ * Cada `linhas` é o array cru do Sheets: [id, nome, produtora, comercial, ...].
+ */
+export function acharEvento(linhasOficiais, linhasManuais, alvo) {
+  const id = String(alvo || "").trim();
+  if (!id) return null;
+
+  const casa = (lista) =>
+    (Array.isArray(lista) ? lista : []).find(
+      (r) => Array.isArray(r) && String(r[0] ?? "").trim() === id
+    );
+
+  const row = casa(linhasOficiais) || casa(linhasManuais);
+  if (!row) return null;
+
+  return {
+    id_evento: row[0],
+    nome_evento: row[1] || "-",
+    produtora: row[2] || "-",
+    comercial: row[3] || "-"
+  };
+}

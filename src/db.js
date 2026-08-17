@@ -3,14 +3,14 @@
 // conforme READ_BACKEND (default "sheets" = comportamento idêntico ao original).
 // O caminho de ESCRITA (getMaquinasIndex resolve linha p/ o batchUpdate;
 // getEventoInfo valida o envio) fica SEMPRE em sheets — o espelho é até 15min stale.
-import { appendToSheet } from "./sheet.js";
-import { startOfDayLocal } from "./utils/datas.js";
+import { appendToSheet, ensureSheetExists } from "./sheet.js";
+import { startOfDayLocal, agoraBR } from "./utils/datas.js";
 import { resumoDeMaquinas } from "./utils/dominio.js";
 import * as sheets from "./repo/sheets.js";
+import { EVENTOS_MANUAIS_SHEET } from "./repo/sheets.js";
 import * as neon from "./repo/neon.js";
 
 const HISTORICO_SHEET = "HISTORICO MAQUINAS";
-const EVENTOS_SHEET = "DADOS EVENTOS";
 
 /** Backend de LEITURA (lista/histórico) selecionado por env. Rollback = flip + redeploy. */
 function readBackend() {
@@ -129,18 +129,45 @@ export async function getEventoInfo(idEvento) {
 }
 
 /* ============================================================
-   🔵 CADASTRAR EVENTO (aba DADOS EVENTOS) — escrita na planilha
+   🔵 CADASTRAR EVENTO — escrita na aba DADOS EVENTOS MANUAIS
+   ⚠️ NUNCA escrever em "DADOS EVENTOS": aquela aba é 100% derivada (uma única
+   fórmula QUERY/IMPORTRANGE em A1 que expande ~3,5k linhas). Uma linha literal
+   embaixo do resultado impede a próxima expansão → a fórmula vira #REF!, a aba
+   zera e TODO evento passa a "não existir" no envio. A leitura junta as duas
+   abas (repo/sheets.js:fetchEventoInfo).
 ============================================================ */
-export async function cadastrarEvento({ id, nome, produtora, comercial }) {
+export async function cadastrarEvento({ id, nome, produtora, comercial, usuario }) {
   const alvo = String(id || "").trim();
   if (!alvo) return false;
 
-  const ok = await appendToSheet(`'${EVENTOS_SHEET}'!A:D`, [
-    alvo,
-    String(nome || "-"),
-    String(produtora || "-"),
-    String(comercial || "-")
-  ]);
+  try {
+    await ensureSheetExists(EVENTOS_MANUAIS_SHEET, [
+      "ID Evento",
+      "Nome Evento",
+      "Produtora",
+      "Comercial",
+      "Cadastrado em",
+      "Cadastrado por"
+    ]);
+  } catch (err) {
+    console.error("❌ Falha ao garantir a aba de eventos manuais:", err);
+    return false;
+  }
+
+  // RAW: o carimbo "dd/mm/aaaa hh:mm" tem que ficar TEXTO (USER_ENTERED faria o
+  // Sheets reparsear em en-US e trocar dia↔mês).
+  const ok = await appendToSheet(
+    `'${EVENTOS_MANUAIS_SHEET}'!A:F`,
+    [
+      alvo,
+      String(nome || "-"),
+      String(produtora || "-"),
+      String(comercial || "-"),
+      agoraBR(),
+      String(usuario || "Sistema")
+    ],
+    { valueInputOption: "RAW" }
+  );
 
   if (ok) CACHE.eventoInfo.map.delete(alvo); // força re-leitura fresca
   return ok;
