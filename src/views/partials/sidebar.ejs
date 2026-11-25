@@ -62,6 +62,10 @@
 </div>
 
 <div class="app-main">
+  <% if (typeof somenteLeitura !== 'undefined' && somenteLeitura) { %>
+    <%# 25/11/2026 — modo SOMENTE LEITURA (o dia da virada): o app virou só consulta %>
+    <div class="alert alert--warn somente-leitura-banner" role="status"><%= mensagemSomenteLeitura %></div>
+  <% } %>
   <div class="top-header">
     <button class="btn-menu" onclick="toggleMenu()" aria-label="Abrir menu">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>

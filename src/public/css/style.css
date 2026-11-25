@@ -572,3 +572,6 @@ a:hover .kpi { transform: translateY(-2px); box-shadow: var(--shadow-lg); border
 .scan-seq-acts button { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 0; color: var(--muted); border-radius: var(--radius-sm); cursor: pointer; }
 .scan-seq-acts button:hover { background: var(--panel); color: var(--text); }
 .scan-seq-status { font-size: 11.5px; line-height: 1.25; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
+
+/* 25/11/2026 — banner do modo SOMENTE LEITURA (o dia da virada para a Central) */
+.somente-leitura-banner { margin: var(--space-2, 8px) var(--space-4, 16px) 0; font-weight: 600; }

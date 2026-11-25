@@ -20,6 +20,7 @@ import syncRoutes from "./routes/sync.js";
 
 // Middleware de autenticação
 import { requireLogin } from "./auth/authMiddleware.js";
+import { bloquearEscritaSeSomenteLeitura, somenteLeituraLigado, MENSAGEM_SOMENTE_LEITURA } from "./utils/somente-leitura.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +96,9 @@ app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   // flag p/ as views mostrarem/ocultarem os botões de ação de exceção
   res.locals.excecoesAtivas = process.env.EXCECOES_ATIVAS === "1";
+  // 25/11/2026 — modo SOMENTE LEITURA (o dia da virada para a Central): banner em todas as telas
+  res.locals.somenteLeitura = somenteLeituraLigado();
+  res.locals.mensagemSomenteLeitura = MENSAGEM_SOMENTE_LEITURA;
   next();
 });
 
@@ -146,6 +150,7 @@ app.use("/maquinas", requireLogin, maquinasRoutes);
 app.use("/envio", requireLogin, envioRoutes);
 app.use("/historico", requireLogin, historicoRoutes);
 app.use("/excecoes", requireLogin, excecoesRoutes);
-app.use("/api", requireLogin, apiRoutes);
+// 25/11/2026 — com SOMENTE_LEITURA=1 toda escrita de /api responde 403 (só os dois syncs passam). Desligado = nada muda.
+app.use("/api", requireLogin, bloquearEscritaSeSomenteLeitura, apiRoutes);
 
 export default app;

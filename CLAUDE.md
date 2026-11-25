@@ -83,6 +83,18 @@ Authentication) está **desligada** — o acesso é controlado pelo login do pr�
 
 ## Histórico de mudanças por agentes
 
+### 2026-11-25 — Modo SOMENTE LEITURA para o dia da virada da logística (flag `SOMENTE_LEITURA`, desligada)
+- A logística está migrando para a **Central de Operações** (Logística → Maquininhas). No dia da virada a Central vira a
+  FONTE do parque e a CONTROLE vira espelho automático; este app passa a ser **só consulta**.
+- `src/utils/somente-leitura.js`: com `SOMENTE_LEITURA=1` (valor EXATO "1"), toda escrita em `/api/*` responde **403**
+  `{ok:false,msg}` (o formato que as telas já mostram no toast) — exceto `/api/sync-manual` e `/api/sync-neon`, que só LEEM a
+  planilha. Montado em `app.js` antes das rotas de `/api`. Banner `alert--warn` no topo de todas as telas (`sidebar.ejs`).
+- **Desligado por padrão** (sem a env nada muda). Ligar = `SOMENTE_LEITURA=1` na Vercel (Production) + redeploy, no dia da virada
+  (roteiro: `C:/projetos/_planos/LOGISTICA-CUTOVER-ROTEIRO-2026-11-25.md`).
+- Testes **39/39** (+5 em `test/somente-leitura.test.js`) e lint verdes. Smoke local com a app real: flag on → POST
+  `/api/perdida` e `/api/registrar-envio` = 403 com a mensagem + banner; flag off → comportamento de antes.
+
+
 ### 2026-08-17 — Cadastro manual de evento saiu da aba derivada (aba `DADOS EVENTOS MANUAIS`)
 - **🐛 BUG NOMEADO — "append em aba de fórmula mata a fórmula inteira":** `cadastrarEvento` fazia
   `values.append` em `'DADOS EVENTOS'!A:D`, mas aquela aba **não tem uma única célula digitada** — é o
